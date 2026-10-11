@@ -100,7 +100,7 @@ describe('memos', () => {
       refundMemo('MSCU1234567', 'EIR-778812'),
       heldReturnMemo('0x3f9a77c1d2e4b5a6978877665544332211')
     ];
-    expect(texts[0]).toBe('PD MSCU1234567 CDEFGH' === '' ? '' : `PD MSCU1234567 ${bl.slice(-17)}`);
+    expect(texts[0]).toBe(`PD MSCU1234567 ${bl.slice(-17)}`);
     expect(texts[1]).toBe(`PC MSCU1234567 D03 ${bl.slice(-12)}`);
     expect(texts[2]).toBe('PS MSCU1234567 EIR-778812');
     expect(texts[3]).toBe('PR MSCU1234567 EIR-778812');
