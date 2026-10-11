@@ -88,7 +88,9 @@ export async function createReleaseRequest(
 	ctx: MutationCtx,
 	a: CreateRequestArgs
 ): Promise<{ requestId: Id<'releaseRequests'>; requestCode: string; containerIds: Id<'containers'>[] }> {
-	const { line, now } = a;
+	const { now } = a;
+	// Always work from the current row: the per-line sequence counter must never be stale.
+	const line = (await ctx.db.get(a.line._id)) ?? a.line;
 	if (line.kind !== 'line') throw appError('FORBIDDEN', 'Only shipping lines create release requests.');
 	const importer = await ctx.db.get(a.importerOrgId);
 	if (!importer || importer.kind !== 'importer') throw appError('NOT_FOUND', 'Importer not found.');

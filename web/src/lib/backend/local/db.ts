@@ -65,7 +65,10 @@ type RangeStep = { type: 'Eq' | 'Gt' | 'Gte' | 'Lt' | 'Lte'; field: string; valu
 function makeRangeBuilder(steps: RangeStep[] = []) {
 	let consumed = false;
 	const add = (type: RangeStep['type']) => (field: string, value: unknown) => {
-		if (consumed) throw new Error('IndexRangeBuilder has already been used! Chain your method calls like `q => q.eq(...).eq(...)`.');
+		if (consumed)
+			throw new Error(
+				'IndexRangeBuilder has already been used! Chain your method calls like `q => q.eq(...).eq(...)`.'
+			);
 		consumed = true;
 		return makeRangeBuilder([...steps, { type, field, value }]);
 	};
@@ -218,7 +221,9 @@ class QueryImpl {
 		let i = 0;
 		return {
 			next: async (): Promise<IteratorResult<Doc>> =>
-				i < items.length ? { value: cloneValue(items[i++]), done: false } : { value: undefined, done: true },
+				i < items.length
+					? { value: cloneValue(items[i++]), done: false }
+					: { value: undefined, done: true },
 			return: async (): Promise<IteratorResult<Doc>> => ({ value: undefined, done: true })
 		};
 	}
@@ -238,9 +243,12 @@ function validateRange(table: string, idx: IndexDef, steps: RangeStep[]) {
 	const rest = steps.slice(i);
 	if (rest.length > 2) throw new Error(`Index ${table}.${idx.name}: too many range expressions.`);
 	for (const r of rest) {
-		if (r.type === 'Eq') throw new Error(`Index ${table}.${idx.name}: equality must precede range comparisons.`);
+		if (r.type === 'Eq')
+			throw new Error(`Index ${table}.${idx.name}: equality must precede range comparisons.`);
 		if (r.field !== idx.fields[i]) {
-			throw new Error(`Index ${table}.${idx.name}: range comparison must be on field "${idx.fields[i] ?? '(none)'}", got "${r.field}".`);
+			throw new Error(
+				`Index ${table}.${idx.name}: range comparison must be on field "${idx.fields[i] ?? '(none)'}", got "${r.field}".`
+			);
 		}
 	}
 	if (rest.length === 2) {
@@ -288,24 +296,33 @@ function userFields(doc: Doc): Record<string, unknown> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type LocalDb = Record<string, any>;
 
-export function makeDb(tx: Tx, opts: { writable: boolean; system?: boolean } = { writable: true }): LocalDb {
+export function makeDb(
+	tx: Tx,
+	opts: { writable: boolean; system?: boolean } = { writable: true }
+): LocalDb {
 	const env = tx.env;
 	const isSystem = !!opts.system;
 
 	function resolveTable(method: string, id: unknown, table?: string): string {
 		if (typeof id !== 'string') {
-			throw new Error(`Invalid argument \`id\` for \`db.${method}\`, expected string but got '${typeof id}': ${String(id)}`);
+			throw new Error(
+				`Invalid argument \`id\` for \`db.${method}\`, expected string but got '${typeof id}': ${String(id)}`
+			);
 		}
 		const t = tableOfId(env.registry, id);
-		if (!t) throw new Error(`Invalid argument \`id\` for \`db.${method}\`: Unable to decode ID: ${id}`);
+		if (!t)
+			throw new Error(`Invalid argument \`id\` for \`db.${method}\`: Unable to decode ID: ${id}`);
 		if (table !== undefined && table !== t) {
-			throw new Error(`Invalid argument \`id\` for \`db.${method}\`: ID is from table "${t}", expected "${table}".`);
+			throw new Error(
+				`Invalid argument \`id\` for \`db.${method}\`: ID is from table "${t}", expected "${table}".`
+			);
 		}
 		return t;
 	}
 
 	function checkWritable(table: string) {
-		if (!opts.writable) throw new Error('Cannot write in a read-only context (queries cannot modify data).');
+		if (!opts.writable)
+			throw new Error('Cannot write in a read-only context (queries cannot modify data).');
 		if (table.startsWith('_')) throw new Error('System tables (prefixed with `_`) are read-only.');
 	}
 
@@ -315,13 +332,16 @@ export function makeDb(tx: Tx, opts: { writable: boolean; system?: boolean } = {
 
 	const reader = {
 		async get(a: string, b?: string) {
-			const [table, id] = b !== undefined ? [resolveTable('get', b, a), b] : [resolveTable('get', a), a];
+			const [table, id] =
+				b !== undefined ? [resolveTable('get', b, a), b] : [resolveTable('get', a), a];
 			const d = tx.lookup(table, id);
 			return d ? cloneValue(d) : null;
 		},
 		query(table: string) {
 			if (table.startsWith('_') !== isSystem) {
-				throw new Error(`${table.startsWith('_') ? 'System' : 'User'} tables can only be accessed from db.${isSystem ? '' : 'system.'}query().`);
+				throw new Error(
+					`${table.startsWith('_') ? 'System' : 'User'} tables can only be accessed from db.${isSystem ? '' : 'system.'}query().`
+				);
 			}
 			return new QueryImpl(tx, { table, index: null, steps: [], order: 'asc', filters: [] });
 		},
@@ -400,10 +420,13 @@ export function makeDb(tx: Tx, opts: { writable: boolean; system?: boolean } = {
 		}),
 		insert,
 		patch: (a: string, b: string | Record<string, unknown>, c?: Record<string, unknown>) =>
-			c !== undefined ? patch(a, b as string, c) : patch(undefined, a, b as Record<string, unknown>),
+			c !== undefined
+				? patch(a, b as string, c)
+				: patch(undefined, a, b as Record<string, unknown>),
 		replace: (a: string, b: string | Record<string, unknown>, c?: Record<string, unknown>) =>
-			c !== undefined ? replace(a, b as string, c) : replace(undefined, a, b as Record<string, unknown>),
+			c !== undefined
+				? replace(a, b as string, c)
+				: replace(undefined, a, b as Record<string, unknown>),
 		delete: (a: string, b?: string) => (b !== undefined ? del(a, b) : del(undefined, a))
 	});
 }
-

@@ -1,4 +1,5 @@
 // @vitest-environment node
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, describe, expect, it } from 'vitest';
 import { api, makeRuntime, memoryStorage } from './__fixtures__/helpers.js';
 import type { LocalRuntime } from './runtime.js';
@@ -70,13 +71,17 @@ describe('cross-tab', () => {
 		const id = (await b.mutation(api.app.addItem, { title: 'from-b', qty: 1 })) as string;
 		expect(id).toHaveLength(32);
 		// leader has it
-		expect(((await a.query(api.app.listItems, {})) as any[]).map((d) => d.title)).toEqual(['from-b']);
+		expect(((await a.query(api.app.listItems, {})) as any[]).map((d) => d.title)).toEqual([
+			'from-b'
+		]);
 		// follower replica has it, and its subscription fired
 		await expect.poll(async () => ((await b.query(api.app.listItems, {})) as any[]).length).toBe(1);
 		await expect.poll(() => seenB.at(-1)).toBe(1);
 
 		// errors cross the tab boundary with ConvexError data intact
-		await expect(b.mutation(api.app.failAfterWrite, {})).rejects.toMatchObject({ data: { code: 'NOPE' } });
+		await expect(b.mutation(api.app.failAfterWrite, {})).rejects.toMatchObject({
+			data: { code: 'NOPE' }
+		});
 		// action through follower
 		expect(await b.action(api.app.slowAction, { n: 2 })).toBe(3);
 		await expect.poll(async () => ((await b.query(api.app.listItems, {})) as any[]).length).toBe(3);
@@ -96,7 +101,10 @@ describe('cross-tab', () => {
 		a.dispose(); // simulates the leader tab closing (releases the lock)
 		await expect.poll(() => b.role).toBe('leader');
 		await b.mutation(api.app.addItem, { title: 'two', qty: 2 });
-		expect(((await b.query(api.app.listItems, {})) as any[]).map((d) => d.title)).toEqual(['one', 'two']);
+		expect(((await b.query(api.app.listItems, {})) as any[]).map((d) => d.title)).toEqual([
+			'one',
+			'two'
+		]);
 
 		// a new tab joins and gets the full state from the new leader
 		const c = tab(locks, name, memoryStorage());
@@ -113,9 +121,13 @@ describe('cross-tab', () => {
 		await Promise.all([a.ready, b.ready]);
 		const [lead, follow] = a.role === 'leader' ? [a, b] : [b, a];
 		await lead.mutation(api.app.addItem, { title: 'x', qty: 1 });
-		await expect.poll(async () => ((await follow.query(api.app.listItems, {})) as any[]).length).toBe(1);
+		await expect
+			.poll(async () => ((await follow.query(api.app.listItems, {})) as any[]).length)
+			.toBe(1);
 		await follow.reset();
-		await expect.poll(async () => ((await follow.query(api.app.listItems, {})) as any[]).length).toBe(0);
+		await expect
+			.poll(async () => ((await follow.query(api.app.listItems, {})) as any[]).length)
+			.toBe(0);
 		expect(await lead.query(api.app.listItems, {})).toEqual([]);
 	});
 

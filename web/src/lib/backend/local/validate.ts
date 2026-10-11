@@ -35,28 +35,46 @@ export function validateValue(
 		case 'any':
 			return null;
 		case 'null':
-			return value === null ? null : `Value does not match validator${at}: expected null, got ${describe(value)}`;
+			return value === null
+				? null
+				: `Value does not match validator${at}: expected null, got ${describe(value)}`;
 		case 'number':
-			return typeof value === 'number' ? null : `Value does not match validator${at}: expected number, got ${describe(value)}`;
+			return typeof value === 'number'
+				? null
+				: `Value does not match validator${at}: expected number, got ${describe(value)}`;
 		case 'bigint':
-			return typeof value === 'bigint' ? null : `Value does not match validator${at}: expected bigint, got ${describe(value)}`;
+			return typeof value === 'bigint'
+				? null
+				: `Value does not match validator${at}: expected bigint, got ${describe(value)}`;
 		case 'boolean':
-			return typeof value === 'boolean' ? null : `Value does not match validator${at}: expected boolean, got ${describe(value)}`;
+			return typeof value === 'boolean'
+				? null
+				: `Value does not match validator${at}: expected boolean, got ${describe(value)}`;
 		case 'string':
-			return typeof value === 'string' ? null : `Value does not match validator${at}: expected string, got ${describe(value)}`;
+			return typeof value === 'string'
+				? null
+				: `Value does not match validator${at}: expected string, got ${describe(value)}`;
 		case 'bytes':
-			return value instanceof ArrayBuffer ? null : `Value does not match validator${at}: expected bytes, got ${describe(value)}`;
+			return value instanceof ArrayBuffer
+				? null
+				: `Value does not match validator${at}: expected bytes, got ${describe(value)}`;
 		case 'id': {
-			if (typeof value !== 'string') return `Value does not match validator${at}: expected id of "${validator.tableName}", got ${describe(value)}`;
+			if (typeof value !== 'string')
+				return `Value does not match validator${at}: expected id of "${validator.tableName}", got ${describe(value)}`;
 			const t = ctx.tableOfId(value);
-			return t === validator.tableName ? null : `Value does not match validator${at}: expected id of table "${validator.tableName}", got "${value}"`;
+			return t === validator.tableName
+				? null
+				: `Value does not match validator${at}: expected id of table "${validator.tableName}", got "${value}"`;
 		}
 		case 'literal': {
 			const lit = jsonToConvex(validator.value as never);
-			return lit === value ? null : `Value does not match validator${at}: expected literal ${JSON.stringify(typeof lit === 'bigint' ? String(lit) : lit)}, got ${describe(value)}`;
+			return lit === value
+				? null
+				: `Value does not match validator${at}: expected literal ${JSON.stringify(typeof lit === 'bigint' ? String(lit) : lit)}, got ${describe(value)}`;
 		}
 		case 'array': {
-			if (!Array.isArray(value)) return `Value does not match validator${at}: expected array, got ${describe(value)}`;
+			if (!Array.isArray(value))
+				return `Value does not match validator${at}: expected array, got ${describe(value)}`;
 			for (let i = 0; i < value.length; i++) {
 				const e = validateValue(validator.value as ValidatorJson, value[i], ctx, `${path}[${i}]`);
 				if (e) return e;
@@ -64,7 +82,12 @@ export function validateValue(
 			return null;
 		}
 		case 'record': {
-			if (value === null || typeof value !== 'object' || Array.isArray(value) || value instanceof ArrayBuffer) {
+			if (
+				value === null ||
+				typeof value !== 'object' ||
+				Array.isArray(value) ||
+				value instanceof ArrayBuffer
+			) {
 				return `Value does not match validator${at}: expected record, got ${describe(value)}`;
 			}
 			for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
@@ -87,10 +110,18 @@ export function validateValue(
 			return `Value does not match any variant of v.union()${at}${firstErr ? ` (e.g. ${firstErr})` : ''}`;
 		}
 		case 'object': {
-			if (value === null || typeof value !== 'object' || Array.isArray(value) || value instanceof ArrayBuffer) {
+			if (
+				value === null ||
+				typeof value !== 'object' ||
+				Array.isArray(value) ||
+				value instanceof ArrayBuffer
+			) {
 				return `Value does not match validator${at}: expected object, got ${describe(value)}`;
 			}
-			const fields = validator.value as Record<string, { fieldType: ValidatorJson; optional: boolean }>;
+			const fields = validator.value as Record<
+				string,
+				{ fieldType: ValidatorJson; optional: boolean }
+			>;
 			const obj = value as Record<string, unknown>;
 			for (const [k, f] of Object.entries(fields)) {
 				const v = obj[k];

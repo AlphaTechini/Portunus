@@ -157,13 +157,22 @@ export async function beginSettlementOp(ctx: MutationCtx, a: BeginSettlementArgs
 		if (deposits.length === 0) throw appError('INVALID_STATE', 'No held deposit was found for this container.');
 		const held = deposits.reduce((s, p) => s + u(p.amountUnits), 0n);
 		const disputed = u(a.disputedUnits ?? '0');
-		const amounts = settlementAmounts({
-			heldUnits: held,
-			depositUnits: c.depositUnits,
-			accruedUnits,
-			damageUnits: damageRaw,
-			disputedUnits: disputed
-		});
+		if (a.dispute) {
+			if (c.disputeId) throw appError('CONFLICT', 'Charges can be disputed only once.');
+			if (disputed <= 0n) throw appError('INVALID', 'Enter the amount you dispute.');
+		}
+		let amounts: ReturnType<typeof settlementAmounts>;
+		try {
+			amounts = settlementAmounts({
+				heldUnits: held,
+				depositUnits: c.depositUnits,
+				accruedUnits,
+				damageUnits: damageRaw,
+				disputedUnits: disputed
+			});
+		} catch (e) {
+			throw appError('INVALID', e instanceof Error ? e.message : 'Invalid amounts.');
+		}
 		const alloc = allocateCharge(
 			deposits.map((p) => p.amountUnits),
 			amounts.chargeUnits,

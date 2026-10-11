@@ -4,7 +4,7 @@
  * point used by postCharges, settleMany, triggerSettlement, disputes.open, the window-end job
  * and the sweep.
  */
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { internalMutation, type ActionCtx } from './_generated/server';
@@ -27,7 +27,7 @@ import type { Hex } from '../lib/shared/domain/memo';
 export interface SettleOutcome {
 	containerId: Id<'containers'>;
 	number?: string;
-	status: 'settled' | 'disputed' | 'failed' | 'skipped';
+	status: 'settled' | 'disputed' | 'failed' | 'skipped' | 'posted';
 	chargeUnits?: string;
 	refundUnits?: string;
 	disputedUnits?: string;
@@ -126,7 +126,7 @@ export const recoverStuck = internalMutation({
 	}
 });
 
-function errInfo(e: unknown): { code: string; message: string } {
+export function errInfo(e: unknown): { code: string; message: string } {
 	const data = (e as { data?: unknown }).data;
 	if (data && typeof data === 'object' && 'code' in data) {
 		const d = data as { code: string; message?: string };
@@ -267,4 +267,12 @@ export async function executeSettlements(
 		});
 	}
 	return outcomes;
+}
+
+/** Turn a skipped/failed outcome into a user-facing error (single-container actions). */
+export function throwIfNotDone(o: SettleOutcome): SettleOutcome {
+	if (o.status === 'skipped' || o.status === 'failed') {
+		throw new ConvexError({ code: o.code && o.code !== 'ERROR' ? o.code : 'INVALID_STATE', message: o.reason ?? 'Settlement did not complete.' });
+	}
+	return o;
 }

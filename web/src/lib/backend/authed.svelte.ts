@@ -5,7 +5,9 @@ import { session } from './session.svelte.js';
 import type { UseQueryOptions, UseQueryReturn } from './types.js';
 
 type WithoutToken<A> = Omit<A, 'sessionToken'>;
-type AuthedArgs<F extends FunctionReference<any>> = WithoutToken<FunctionArgs<F>>;
+type AuthedArgs<F extends FunctionReference<'query' | 'mutation' | 'action'>> = WithoutToken<
+	FunctionArgs<F>
+>;
 
 /**
  * Like `useQuery`, but injects `sessionToken` into the args and skips the query while

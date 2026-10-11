@@ -35,7 +35,8 @@ function parseOptions<Q extends FunctionReference<'query'>>(
 
 export function useLocalQuery<Query extends FunctionReference<'query'>>(
 	query: Query,
-	args: FunctionArgs<Query> | 'skip' | (() => FunctionArgs<Query> | 'skip') = {} as FunctionArgs<Query>,
+	args:
+		FunctionArgs<Query> | 'skip' | (() => FunctionArgs<Query> | 'skip') = {} as FunctionArgs<Query>,
 	options: UseQueryOptions<Query> | (() => UseQueryOptions<Query>) = {}
 ): UseQueryReturn<Query> {
 	if (!browser) {
@@ -137,7 +138,11 @@ export function useLocalQuery<Query extends FunctionReference<'query'>>(
 		syncResult !== undefined ? syncResult : staleAllowed ? state.lastResult : undefined
 	);
 	const isStale = $derived(
-		!isSkipped && syncResult === undefined && staleAllowed && !sameArgsAsLastResult && result !== undefined
+		!isSkipped &&
+			syncResult === undefined &&
+			staleAllowed &&
+			!sameArgsAsLastResult &&
+			result !== undefined
 	);
 	const data = $derived.by(() => (result instanceof Error ? undefined : result));
 	const error = $derived.by(() => (result instanceof Error ? result : undefined));

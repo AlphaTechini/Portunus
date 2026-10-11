@@ -39,7 +39,8 @@ Two independent switches.
 **Backend mode** (decided in the browser by `src/lib/backend`):
 - `convex`: `PUBLIC_CONVEX_URL` is set. Uses `convex-svelte` against a real Convex deployment.
 - `local`: `PUBLIC_CONVEX_URL` is unset. The same `src/convex/*.ts` modules run **inside the browser** in an in-memory runtime that emulates `ctx.db`, `ctx.scheduler`, `ctx.runQuery/runMutation/runAction`, and crons, persisted to `localStorage` and synced across tabs with `BroadcastChannel`. This makes the whole product demoable with no network and lets us test it here. `"use node"` files are excluded from the local runtime.
-- Read env with `import { env } from '$env/dynamic/public'` (never `$env/static/public`, so the build works without the var).
+- SvelteKit here is **3.x**: `$lib` is removed. Import with package `imports` aliases: `#lib/ui`, `#lib/backend`, `#lib/...`. `browser`/`dev` come from `$app/env` (not `$app/environment`). Public env vars are declared in `web/src/env.ts` (`defineEnvVars`) and read from `$app/env/public`. `$env/*` modules are deprecated; do not use them.
+- Files that must not run in the browser runtime are named `*Node.ts` (e.g. `tempoNode.ts`) and start with `"use node"`.
 
 **Chain mode** (`TEMPO_MODE` Convex env, default `sim`; the local runtime is always `sim`):
 - `sim`: chain behaviour simulated in Convex tables (`sim_*`), exactly per brief §11 "Sim behaviour spec". UI shows a persistent "Simulated chain" badge; sim tx hashes are displayed with a `sim:` prefix and have no explorer link.

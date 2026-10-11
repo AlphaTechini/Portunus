@@ -148,11 +148,9 @@ export class Tx {
 	}
 
 	private lookupOverlay(table: string, id: string): Doc | null | undefined {
-		for (let t: Tx | null = this; t; t = t.parent) {
-			const o = t.overlay.get(table)?.get(id);
-			if (o !== undefined) return o;
-		}
-		return undefined;
+		const o = this.overlay.get(table)?.get(id);
+		if (o !== undefined) return o;
+		return this.parent?.lookupOverlay(table, id);
 	}
 
 	lookup(table: string, id: string): Doc | undefined {
@@ -167,7 +165,7 @@ export class Tx {
 	 * Lets queries reuse a cached sorted index of an immutable snapshot.
 	 */
 	pristine(table: string): TableMap | null {
-		for (let t: Tx | null = this; t; t = t.parent) if (t.overlay.has(table)) return null;
+		if (chain(this).some((t) => t.overlay.has(table))) return null;
 		this.readTables.add(table);
 		return this.base.get(table) ?? EMPTY_TABLE;
 	}
@@ -189,7 +187,8 @@ export class Tx {
 	}
 
 	private put(table: string, doc: Doc | null, id: string) {
-		if (!this.writable) throw new Error('Cannot write in a read-only context (queries cannot modify data).');
+		if (!this.writable)
+			throw new Error('Cannot write in a read-only context (queries cannot modify data).');
 		let m = this.overlay.get(table);
 		if (!m) this.overlay.set(table, (m = new Map()));
 		m.set(id, doc);

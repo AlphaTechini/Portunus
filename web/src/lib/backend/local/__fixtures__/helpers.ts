@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { anyApi } from 'convex/server';
 import * as app from './app.js';
 import * as crons from './crons.js';

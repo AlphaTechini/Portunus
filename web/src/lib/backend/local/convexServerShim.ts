@@ -30,7 +30,9 @@ export const env: Record<string, string | undefined> = new Proxy(
 	{
 		get: (_t, key) =>
 			typeof key === 'string'
-				? (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[key]
+				? (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
+						key
+					]
 				: undefined
 	}
 );

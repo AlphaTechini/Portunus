@@ -1,11 +1,12 @@
 // Runs in the 'svelte' vitest project (client-compiled runes), see vitest.runtime.config.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushSync } from 'svelte';
 
 vi.mock('$app/env', () => ({ browser: true, dev: true, building: false, version: 'test' }));
 vi.mock('$app/env/public', () => ({ PUBLIC_CONVEX_URL: undefined }));
 
-import { api, makeRuntime } from './local/__fixtures__/helpers.js';
+import { api, fixtureModules, makeRuntime } from './local/__fixtures__/helpers.js';
 import { setLocalRuntime } from './local/browser.js';
 import { useLocalQuery } from './query.svelte.js';
 import { session, setSession, clearSession } from './session.svelte.js';
@@ -25,7 +26,9 @@ describe('useLocalQuery', () => {
 		let skip = $state(false);
 		let q!: ReturnType<typeof useLocalQuery<any>>;
 		const stop = $effect.root(() => {
-			q = useLocalQuery(api.app.listItems, () => (skip ? 'skip' : tag ? { tag } : {}), { keepPreviousData: true });
+			q = useLocalQuery(api.app.listItems, () => (skip ? 'skip' : tag ? { tag } : {}), {
+				keepPreviousData: true
+			});
 		});
 		expect(q.isLoading).toBe(true);
 		expect(q.data).toBeUndefined();
@@ -72,7 +75,7 @@ describe('useLocalQuery', () => {
 describe('session + useAuthedQuery', () => {
 	it('skips without token and injects sessionToken once signed in', async () => {
 		vi.stubGlobal('window', {
-			localStorage: new Map<string, string>() && {
+			localStorage: {
 				m: new Map<string, string>(),
 				getItem(k: string) {
 					return this.m.get(k) ?? null;
@@ -99,8 +102,16 @@ describe('session + useAuthedQuery', () => {
 		});
 		const { mutationGeneric, queryGeneric } = await import('convex/server');
 		const { v } = await import('convex/values');
-		const whoami = queryGeneric({ args: { sessionToken: v.string() }, handler: async (_c, a) => `user:${a.sessionToken}` });
-		const rt = makeRuntime({ crons: { crons: {} }, modules: { 'who.ts': { whoami, nop: mutationGeneric({ args: {}, handler: async () => null }) } } });
+		const whoami = queryGeneric({
+			args: { sessionToken: v.string() },
+			handler: async (_c, a) => `user:${a.sessionToken}`
+		});
+		const rt = makeRuntime({
+			crons: { crons: {} },
+			modules: {
+				'who.ts': { whoami, nop: mutationGeneric({ args: {}, handler: async () => null }) }
+			}
+		});
 		setLocalRuntime(rt);
 		clearSession();
 
@@ -125,5 +136,56 @@ describe('session + useAuthedQuery', () => {
 		stop();
 		vi.unstubAllGlobals();
 		await sleep(0);
+	});
+});
+
+describe('imperative facade', () => {
+	it('getBackend() works in local mode and resetLocalDb wipes, clears the session and reseeds', async () => {
+		const { mutationGeneric, queryGeneric } = await import('convex/server');
+		const { getBackend, resetLocalDb, backendMode } = await import('./client.js');
+		const seed = {
+			ensure: mutationGeneric({
+				args: {},
+				handler: async (ctx) => {
+					const any = await ctx.db.query('items').first();
+					if (!any) await ctx.db.insert('items', { title: 'seeded', qty: 1 });
+					return null;
+				}
+			})
+		};
+		const rt = makeRuntime({
+			crons: { crons: {} },
+			modules: {
+				...fixtureModules(),
+				'seed.ts': seed,
+				'q.ts': {
+					n: queryGeneric({
+						args: {},
+						handler: async (ctx) => (await ctx.db.query('items').collect()).length
+					})
+				}
+			}
+		});
+		setLocalRuntime(rt);
+		vi.stubGlobal('window', {
+			localStorage: { removeItem() {}, setItem() {}, getItem: () => null },
+			sessionStorage: { removeItem() {}, setItem() {}, getItem: () => null }
+		});
+		expect(backendMode).toBe('local');
+		const b = getBackend();
+		expect(b.mode).toBe('local');
+		await b.mutation(api.app.addItem, { title: 'mine', qty: 3 });
+		const seen: number[] = [];
+		const un = b.subscribe(api.q.n, {}, (n: number) => seen.push(n));
+		await expect.poll(() => seen.at(-1)).toBe(1);
+		setSession('abc');
+		await resetLocalDb();
+		expect(session.token).toBeNull();
+		await expect.poll(() => seen.at(-1)).toBe(1); // wiped, then reseeded: exactly one item
+		expect(((await b.query(api.app.listItems, {})) as any[]).map((d) => d.title)).toEqual([
+			'seeded'
+		]);
+		un();
+		vi.unstubAllGlobals();
 	});
 });

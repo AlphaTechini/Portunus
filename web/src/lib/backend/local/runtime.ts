@@ -185,7 +185,10 @@ export class LocalRuntime {
 	functions = new Map<string, FnEntry>();
 
 	private o: LocalRuntimeOptions;
-	private schemaTables: Record<string, { validator?: { json: unknown }; indexes: Array<{ indexDescriptor: string; fields: string[] }> }> = {};
+	private schemaTables: Record<
+		string,
+		{ validator?: { json: unknown }; indexes: Array<{ indexDescriptor: string; fields: string[] }> }
+	> = {};
 	private cronSpecs: Record<string, CronSpec> = {};
 	private env: TxEnv;
 	private queue: Promise<unknown> = Promise.resolve();
@@ -199,8 +202,14 @@ export class LocalRuntime {
 	private wakeTimer: ReturnType<typeof setTimeout> | null = null;
 	private wakeAt = Infinity;
 	private inflight = new Set<string>();
-	private pendingRpc = new Map<string, { msg: RpcMessage; resolve: (v: unknown) => void; reject: (e: Error) => void }>();
-	private handledRpc = new Map<string, Promise<{ ok: boolean; value?: unknown; error?: SerializedError }>>();
+	private pendingRpc = new Map<
+		string,
+		{ msg: RpcMessage; resolve: (v: unknown) => void; reject: (e: Error) => void }
+	>();
+	private handledRpc = new Map<
+		string,
+		Promise<{ ok: boolean; value?: unknown; error?: SerializedError }>
+	>();
 	private disposed = false;
 	private lastPrune = 0;
 	private unloadHandler: (() => void) | null = null;
@@ -240,7 +249,9 @@ export class LocalRuntime {
 
 	private async init() {
 		if (typeof window !== 'undefined') {
-			(window as unknown as { __convexAllowFunctionsInBrowser?: boolean }).__convexAllowFunctionsInBrowser = true;
+			(
+				window as unknown as { __convexAllowFunctionsInBrowser?: boolean }
+			).__convexAllowFunctionsInBrowser = true;
 		}
 		this.installEnv();
 
@@ -282,7 +293,13 @@ export class LocalRuntime {
 					exportArgs?: () => string;
 				};
 				if (!fn._handler) continue;
-				const kind: Kind | null = fn.isQuery ? 'query' : fn.isMutation ? 'mutation' : fn.isAction ? 'action' : null;
+				const kind: Kind | null = fn.isQuery
+					? 'query'
+					: fn.isMutation
+						? 'mutation'
+						: fn.isAction
+							? 'action'
+							: null;
 				if (!kind) continue;
 				const fname = `${name}:${exp}`;
 				this.functions.set(fname, {
@@ -309,11 +326,13 @@ export class LocalRuntime {
 		const factory = this.o.createChannel === undefined ? null : this.o.createChannel;
 		if (factory && this.o.leader !== 'always') {
 			this.channel = factory(this.o.channelName ?? DEFAULT_CHANNEL);
-			if (this.channel) this.channel.onmessage = (ev) => this.onMessage(ev.data as Record<string, unknown>);
+			if (this.channel)
+				this.channel.onmessage = (ev) => this.onMessage(ev.data as Record<string, unknown>);
 		} else if (factory) {
 			// leader 'always' but still publish commits so followers can replicate (used in tests).
 			this.channel = factory(this.o.channelName ?? DEFAULT_CHANNEL);
-			if (this.channel) this.channel.onmessage = (ev) => this.onMessage(ev.data as Record<string, unknown>);
+			if (this.channel)
+				this.channel.onmessage = (ev) => this.onMessage(ev.data as Record<string, unknown>);
 		}
 
 		if (this.o.leader === 'always' || !this.channel) {
@@ -350,11 +369,9 @@ export class LocalRuntime {
 	private installUnloadHandler() {
 		const g = globalThis as { addEventListener?: (t: string, cb: () => void) => void };
 		if (typeof g.addEventListener !== 'function' || !this.o.storage) return;
-		this.unloadHandler = () => {
-			this.flush();
-			this.election?.stop();
-		};
+		this.unloadHandler = () => this.flush();
 		g.addEventListener('pagehide', this.unloadHandler);
+		g.addEventListener('visibilitychange', this.unloadHandler);
 	}
 
 	private onLeaderStart() {
@@ -373,7 +390,9 @@ export class LocalRuntime {
 		const waiting = [...this.pendingRpc.values()];
 		this.pendingRpc.clear();
 		for (const p of waiting) {
-			void this.execRpc(p.msg).then((r) => (r.ok ? p.resolve(r.value) : p.reject(deserializeError(r.error!))));
+			void this.execRpc(p.msg).then((r) =>
+				r.ok ? p.resolve(r.value) : p.reject(deserializeError(r.error!))
+			);
 		}
 	}
 
@@ -420,7 +439,11 @@ export class LocalRuntime {
 		} catch (e) {
 			if (!this.persistWarned) {
 				this.persistWarned = true;
-				this.log('warn', 'Could not persist the local database (storage full or blocked). Changes are kept in memory only.', e);
+				this.log(
+					'warn',
+					'Could not persist the local database (storage full or blocked). Changes are kept in memory only.',
+					e
+				);
 			}
 		}
 	}
@@ -517,7 +540,8 @@ export class LocalRuntime {
 	private makeScheduler(txFor: () => Tx | Promise<Tx>) {
 		const schedule = async (when: number, ref: RefLike, args: unknown) => {
 			const entry = this.lookup(ref, null, false);
-			if (entry.kind === 'query') throw new Error(`Cannot schedule query ${entry.name}; schedule a mutation or action.`);
+			if (entry.kind === 'query')
+				throw new Error(`Cannot schedule query ${entry.name}; schedule a mutation or action.`);
 			const tx = await txFor();
 			const id = this.env.newId(SCHEDULED_TABLE);
 			const doc: Doc = {
@@ -533,7 +557,8 @@ export class LocalRuntime {
 			return id;
 		};
 		return {
-			runAfter: (ms: number, ref: RefLike, args?: unknown) => schedule(Date.now() + Math.max(0, Number(ms) || 0), ref, args),
+			runAfter: (ms: number, ref: RefLike, args?: unknown) =>
+				schedule(Date.now() + Math.max(0, Number(ms) || 0), ref, args),
 			runAt: (ts: number | Date, ref: RefLike, args?: unknown) =>
 				schedule(ts instanceof Date ? ts.getTime() : Number(ts), ref, args),
 			cancel: async (id: string) => {
@@ -544,7 +569,11 @@ export class LocalRuntime {
 				if (state !== 'pending') {
 					throw new Error(`Scheduled function with ID "${id}" can't be canceled: it is ${state}.`);
 				}
-				tx.upsertDoc(SCHEDULED_TABLE, { ...d, state: { kind: 'canceled' }, completedTime: Date.now() });
+				tx.upsertDoc(SCHEDULED_TABLE, {
+					...d,
+					state: { kind: 'canceled' },
+					completedTime: Date.now()
+				});
 			}
 		};
 	}
@@ -613,9 +642,12 @@ export class LocalRuntime {
 		const ctx = {
 			...this.baseCtx(),
 			scheduler: this.makeSchedulerForAction(),
-			runQuery: (ref: RefLike, qargs?: unknown) => this.execQuery(this.lookup(ref, 'query', false), qargs),
-			runMutation: (ref: RefLike, margs?: unknown) => this.execMutation(this.lookup(ref, 'mutation', false), margs),
-			runAction: (ref: RefLike, aargs?: unknown) => this.execAction(this.lookup(ref, 'action', false), aargs),
+			runQuery: (ref: RefLike, qargs?: unknown) =>
+				this.execQuery(this.lookup(ref, 'query', false), qargs),
+			runMutation: (ref: RefLike, margs?: unknown) =>
+				this.execMutation(this.lookup(ref, 'mutation', false), margs),
+			runAction: (ref: RefLike, aargs?: unknown) =>
+				this.execAction(this.lookup(ref, 'action', false), aargs),
 			vectorSearch: async () => {
 				throw new Error('Vector search is not available in the local runtime.');
 			}
@@ -628,8 +660,10 @@ export class LocalRuntime {
 		const inTx = <T>(f: (s: ReturnType<LocalRuntime['makeScheduler']>) => Promise<T>) =>
 			this.transact(async (tx) => f(this.makeScheduler(() => tx)));
 		return {
-			runAfter: (ms: number, ref: RefLike, args?: unknown) => inTx((s) => s.runAfter(ms, ref, args)),
-			runAt: (ts: number | Date, ref: RefLike, args?: unknown) => inTx((s) => s.runAt(ts, ref, args)),
+			runAfter: (ms: number, ref: RefLike, args?: unknown) =>
+				inTx((s) => s.runAfter(ms, ref, args)),
+			runAt: (ts: number | Date, ref: RefLike, args?: unknown) =>
+				inTx((s) => s.runAt(ts, ref, args)),
 			cancel: (id: string) => inTx((s) => s.cancel(id))
 		};
 	}
@@ -719,7 +753,15 @@ export class LocalRuntime {
 					errCb?.(e as Error);
 					return;
 				}
-				sub = { key, entry, args: a, listeners: new Set(), readTables: new Set(), running: false, dirty: false };
+				sub = {
+					key,
+					entry,
+					args: a,
+					listeners: new Set(),
+					readTables: new Set(),
+					running: false,
+					dirty: false
+				};
 				this.subs.set(key, sub);
 				sub.listeners.add(listener);
 				void this.refresh(sub);
@@ -779,7 +821,9 @@ export class LocalRuntime {
 				const changed =
 					!prev ||
 					prev.ok !== next.ok ||
-					(prev.ok && next.ok ? !valuesEqual(prev.value, next.value) : !prev.ok && !next.ok && prev.error.message !== next.error.message);
+					(prev.ok && next.ok
+						? !valuesEqual(prev.value, next.value)
+						: !prev.ok && !next.ok && prev.error.message !== next.error.message);
 				if (changed) {
 					sub.result = next;
 					for (const l of [...sub.listeners]) this.emitTo(l, next);
@@ -864,7 +908,11 @@ export class LocalRuntime {
 						(d.scheduledTime as number) <= now &&
 						!this.inflight.has(d._id)
 				)
-				.sort((a, b) => (a.scheduledTime as number) - (b.scheduledTime as number) || a._creationTime - b._creationTime);
+				.sort(
+					(a, b) =>
+						(a.scheduledTime as number) - (b.scheduledTime as number) ||
+						a._creationTime - b._creationTime
+				);
 			for (const job of due) {
 				this.inflight.add(job._id);
 				void this.runScheduledJob(job).finally(() => {
@@ -975,7 +1023,10 @@ export class LocalRuntime {
 		if (!jobs) return;
 		const cutoff = Date.now() - 60 * 60_000;
 		const old = [...jobs.values()].filter(
-			(d) => (d.state as { kind: string }).kind !== 'pending' && (d.state as { kind: string }).kind !== 'inProgress' && ((d.completedTime as number) ?? 0) < cutoff
+			(d) =>
+				(d.state as { kind: string }).kind !== 'pending' &&
+				(d.state as { kind: string }).kind !== 'inProgress' &&
+				((d.completedTime as number) ?? 0) < cutoff
 		);
 		if (!old.length) return;
 		await this.transact(async (tx) => {
@@ -991,7 +1042,12 @@ export class LocalRuntime {
 			case 'hello':
 				if (this.role === 'leader') {
 					if (msg.seq !== this.store.seq) {
-						this.channel?.postMessage({ t: 'snapshot', to: msg.from, from: this.tabId, snap: JSON.stringify(this.store.toSnapshot()) });
+						this.channel?.postMessage({
+							t: 'snapshot',
+							to: msg.from,
+							from: this.tabId,
+							snap: JSON.stringify(this.store.toSnapshot())
+						});
 					}
 					this.channel?.postMessage({ t: 'leader', to: msg.from, from: this.tabId });
 				}
@@ -1068,7 +1124,9 @@ export class LocalRuntime {
 		});
 	}
 
-	private execRpc(msg: RpcMessage): Promise<{ ok: boolean; value?: unknown; error?: SerializedError }> {
+	private execRpc(
+		msg: RpcMessage
+	): Promise<{ ok: boolean; value?: unknown; error?: SerializedError }> {
 		let cached = this.handledRpc.get(msg.id);
 		if (cached) return cached;
 		cached = (async () => {
@@ -1111,7 +1169,10 @@ export class LocalRuntime {
 		this.election?.stop();
 		this.channel?.close();
 		const g = globalThis as { removeEventListener?: (t: string, cb: () => void) => void };
-		if (this.unloadHandler) g.removeEventListener?.('pagehide', this.unloadHandler);
+		if (this.unloadHandler) {
+			g.removeEventListener?.('pagehide', this.unloadHandler);
+			g.removeEventListener?.('visibilitychange', this.unloadHandler);
+		}
 		for (const p of this.pendingRpc.values()) p.reject(new Error('Local backend disposed'));
 		this.pendingRpc.clear();
 		this.subs.clear();

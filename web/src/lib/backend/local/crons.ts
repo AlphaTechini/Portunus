@@ -95,14 +95,26 @@ export function nextRun(s: CronSchedule, after: number): number {
 		}
 		case 'daily': {
 			const d = new Date(after);
-			let t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), s.hourUTC, s.minuteUTC ?? 0);
+			let t = Date.UTC(
+				d.getUTCFullYear(),
+				d.getUTCMonth(),
+				d.getUTCDate(),
+				s.hourUTC,
+				s.minuteUTC ?? 0
+			);
 			if (t <= after) t += 24 * 60 * MINUTE;
 			return t;
 		}
 		case 'weekly': {
 			const dow = DAYS.indexOf(String(s.dayOfWeek).toLowerCase());
 			const d = new Date(after);
-			let t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), s.hourUTC, s.minuteUTC ?? 0);
+			let t = Date.UTC(
+				d.getUTCFullYear(),
+				d.getUTCMonth(),
+				d.getUTCDate(),
+				s.hourUTC,
+				s.minuteUTC ?? 0
+			);
 			t += ((dow - new Date(t).getUTCDay() + 7) % 7) * 24 * 60 * MINUTE;
 			if (t <= after) t += 7 * 24 * 60 * MINUTE;
 			return t;

@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConvexError } from 'convex/values';
 import { api, fixtureModules, makeRuntime, memoryStorage } from './__fixtures__/helpers.js';
 import { LocalRuntime } from './runtime.js';
@@ -47,7 +48,8 @@ describe('db basics', () => {
 	it('ids encode the table, creation times strictly increase', async () => {
 		const r = rt();
 		const ids: string[] = [];
-		for (let i = 0; i < 5; i++) ids.push((await r.mutation(api.app.addItem, { title: `t${i}`, qty: i })) as string);
+		for (let i = 0; i < 5; i++)
+			ids.push((await r.mutation(api.app.addItem, { title: `t${i}`, qty: i })) as string);
 		const items = (await r.query(api.app.listItems, {})) as any[];
 		const times = items.map((d) => d._creationTime);
 		expect([...times].sort((a, b) => a - b)).toEqual(times);
@@ -59,14 +61,22 @@ describe('db basics', () => {
 
 	it('rejects args that fail validation', async () => {
 		const r = rt();
-		await expect(r.mutation(api.app.addItem, { title: 1, qty: 1 })).rejects.toThrow(/ArgumentValidationError/);
-		await expect(r.mutation(api.app.addItem, { title: 'a', qty: 1, extra: true })).rejects.toThrow(/extra field/);
-		await expect(r.mutation(api.app.addItem, { title: 'a' })).rejects.toThrow(/missing the required field/);
+		await expect(r.mutation(api.app.addItem, { title: 1, qty: 1 })).rejects.toThrow(
+			/ArgumentValidationError/
+		);
+		await expect(r.mutation(api.app.addItem, { title: 'a', qty: 1, extra: true })).rejects.toThrow(
+			/extra field/
+		);
+		await expect(r.mutation(api.app.addItem, { title: 'a' })).rejects.toThrow(
+			/missing the required field/
+		);
 	});
 
 	it('public API refuses internal functions, wrong kinds and unknown names', async () => {
 		const r = rt();
-		await expect(r.mutation(api.app.secretInternal, {})).rejects.toThrow(/Could not find public function/);
+		await expect(r.mutation(api.app.secretInternal, {})).rejects.toThrow(
+			/Could not find public function/
+		);
 		await expect(r.query(api.app.addItem, {})).rejects.toThrow(/is a mutation, not a query/);
 		await expect(r.query(api.nope.nothing, {})).rejects.toThrow(/Could not find/);
 	});
@@ -105,18 +115,47 @@ describe('queries and indexes', () => {
 				args: {},
 				handler: async (ctx) => {
 					const out: Record<string, unknown> = {};
-					out.gt3lte7 = (await ctx.db.query('items').withIndex('by_qty', (q) => q.gt('qty', 3).lte('qty', 7)).collect()).map((d: any) => d.qty);
-					out.desc = (await ctx.db.query('items').withIndex('by_qty').order('desc').take(2)).map((d: any) => d.qty);
-					out.tagRange = (await ctx.db.query('items').withIndex('by_tag_qty', (q: any) => q.eq('tag', 'x').gte('qty', 5)).collect()).map((d: any) => d.qty);
-					out.filter = (await ctx.db.query('items').filter((q) => q.and(q.eq(q.field('tag'), 'x'), q.gt(q.field('qty'), 1))).collect()).map((d: any) => d.title);
-					out.or = (await ctx.db.query('items').filter((q) => q.or(q.eq(q.field('tag'), 'y'), q.not(q.neq(q.field('qty'), 7)))).collect()).map((d: any) => d.title);
+					out.gt3lte7 = (
+						await ctx.db
+							.query('items')
+							.withIndex('by_qty', (q) => q.gt('qty', 3).lte('qty', 7))
+							.collect()
+					).map((d: any) => d.qty);
+					out.desc = (await ctx.db.query('items').withIndex('by_qty').order('desc').take(2)).map(
+						(d: any) => d.qty
+					);
+					out.tagRange = (
+						await ctx.db
+							.query('items')
+							.withIndex('by_tag_qty', (q: any) => q.eq('tag', 'x').gte('qty', 5))
+							.collect()
+					).map((d: any) => d.qty);
+					out.filter = (
+						await ctx.db
+							.query('items')
+							.filter((q) => q.and(q.eq(q.field('tag'), 'x'), q.gt(q.field('qty'), 1)))
+							.collect()
+					).map((d: any) => d.title);
+					out.or = (
+						await ctx.db
+							.query('items')
+							.filter((q) => q.or(q.eq(q.field('tag'), 'y'), q.not(q.neq(q.field('qty'), 7))))
+							.collect()
+					).map((d: any) => d.title);
 					out.first = (await ctx.db.query('items').withIndex('by_qty').first())?.qty;
-					out.missingTag = (await ctx.db.query('items').withIndex('by_tag', (q) => q.eq('tag', undefined)).collect()).map((d: any) => d.title);
+					out.missingTag = (
+						await ctx.db
+							.query('items')
+							.withIndex('by_tag', (q) => q.eq('tag', undefined))
+							.collect()
+					).map((d: any) => d.title);
 					const iter: string[] = [];
 					for await (const d of ctx.db.query('items').order('desc')) iter.push((d as any).title);
 					out.iter = iter;
 					const p1 = await ctx.db.query('items').paginate({ numItems: 2, cursor: null });
-					const p2 = await ctx.db.query('items').paginate({ numItems: 2, cursor: p1.continueCursor });
+					const p2 = await ctx.db
+						.query('items')
+						.paginate({ numItems: 2, cursor: p1.continueCursor });
 					out.pages = [p1.page.length, p1.isDone, p2.page.length, p2.isDone];
 					out.count = await (ctx.db.query('items') as any).count();
 					let uniqueErr = '';
@@ -126,15 +165,27 @@ describe('queries and indexes', () => {
 						uniqueErr = (e as Error).message;
 					}
 					out.uniqueErr = uniqueErr;
-					out.uniqueOk = (await ctx.db.query('items').withIndex('by_qty', (q) => q.eq('qty', 9)).unique())?.title;
+					out.uniqueOk = (
+						await ctx.db
+							.query('items')
+							.withIndex('by_qty', (q) => q.eq('qty', 9))
+							.unique()
+					)?.title;
 					return out;
 				}
 			}),
 			badIndex: query({
 				args: {},
-				handler: async (ctx) => ctx.db.query('items').withIndex('by_tag_qty', (q) => q.eq('qty', 1)).collect()
+				handler: async (ctx) =>
+					ctx.db
+						.query('items')
+						.withIndex('by_tag_qty', (q) => q.eq('qty', 1))
+						.collect()
 			}),
-			unknownIndex: query({ args: {}, handler: async (ctx) => ctx.db.query('items').withIndex('nope').collect() }),
+			unknownIndex: query({
+				args: {},
+				handler: async (ctx) => ctx.db.query('items').withIndex('nope').collect()
+			}),
 			unused: query({ args: { id: v.id('items') }, handler: async () => null })
 		};
 		const r2 = rt({ modules: { ...fixtureModules(), 'probe.ts': mod }, storage: null });
@@ -194,7 +245,9 @@ describe('transactions', () => {
 		const n = await r.mutation(api.app.nested, {});
 		expect(n).toBe(1);
 		expect(await r.query(api.app.countLogs, {})).toBe(0);
-		expect(((await r.query(api.app.listItems, {})) as any[]).map((d) => d.title)).toEqual(['outer-ok']);
+		expect(((await r.query(api.app.listItems, {})) as any[]).map((d) => d.title)).toEqual([
+			'outer-ok'
+		]);
 	});
 
 	it('scheduling inside a failed mutation is discarded', async () => {
@@ -208,7 +261,10 @@ describe('transactions', () => {
 	it('schema validation rejects bad documents', async () => {
 		const { mutationGeneric: mutation } = await import('convex/server');
 		const mod = {
-			bad: mutation({ args: {}, handler: async (ctx) => ctx.db.insert('items', { title: 5 } as never) }),
+			bad: mutation({
+				args: {},
+				handler: async (ctx) => ctx.db.insert('items', { title: 5 } as never)
+			}),
 			badPatch: mutation({
 				args: {},
 				handler: async (ctx) => {
@@ -224,7 +280,11 @@ describe('transactions', () => {
 					const d1 = await ctx.db.get(id);
 					await ctx.db.replace(id, { title: 'y', qty: 3 });
 					const d2 = await ctx.db.get(id);
-					const norm = [ctx.db.normalizeId('items', id), ctx.db.normalizeId('logs', id), ctx.db.normalizeId('items', 'garbage')];
+					const norm = [
+						ctx.db.normalizeId('items', id),
+						ctx.db.normalizeId('logs', id),
+						ctx.db.normalizeId('items', 'garbage')
+					];
 					await ctx.db.delete(id);
 					const d3 = await ctx.db.get(id);
 					return { d1, d2, norm, d3, id };
@@ -254,14 +314,27 @@ describe('read-your-writes inside a mutation', () => {
 					const before = (await ctx.db.query('items').withIndex('by_qty').collect()).length;
 					const a = await ctx.db.insert('items', { title: 'a', qty: 5 });
 					const b = await ctx.db.insert('items', { title: 'b', qty: 1 });
-					const afterInsert = (await ctx.db.query('items').withIndex('by_qty').collect()).map((d: any) => d.title);
+					const afterInsert = (await ctx.db.query('items').withIndex('by_qty').collect()).map(
+						(d: any) => d.title
+					);
 					await ctx.db.patch(a, { qty: 0 });
-					const afterPatch = (await ctx.db.query('items').withIndex('by_qty').collect()).map((d: any) => d.title);
+					const afterPatch = (await ctx.db.query('items').withIndex('by_qty').collect()).map(
+						(d: any) => d.title
+					);
 					await ctx.db.delete(b);
-					const afterDelete = (await ctx.db.query('items').withIndex('by_qty').collect()).map((d: any) => d.title);
+					const afterDelete = (await ctx.db.query('items').withIndex('by_qty').collect()).map(
+						(d: any) => d.title
+					);
 					const job = await ctx.scheduler.runAfter(10_000, anyApiRef.app.writeLog, { msg: 'x' });
 					const sys = await ctx.db.system.get(job);
-					return { before, afterInsert, afterPatch, afterDelete, sysState: (sys as any).state.kind, sysName: (sys as any).name };
+					return {
+						before,
+						afterInsert,
+						afterPatch,
+						afterDelete,
+						sysState: (sys as any).state.kind,
+						sysName: (sys as any).name
+					};
 				}
 			})
 		};
@@ -292,7 +365,9 @@ describe('actions', () => {
 	});
 	it('propagates ConvexError from actions', async () => {
 		const r = rt();
-		await expect(r.action(api.app.failingAction, {})).rejects.toMatchObject({ data: { code: 'ACTION_FAIL' } });
+		await expect(r.action(api.app.failingAction, {})).rejects.toMatchObject({
+			data: { code: 'ACTION_FAIL' }
+		});
 	});
 });
 
@@ -301,17 +376,24 @@ describe('scheduler', () => {
 		vi.useFakeTimers();
 		const r = rt();
 		const id = (await r.mutation(api.app.scheduleLog, { delayMs: 1000, msg: 'later' })) as string;
-		const cancelMe = (await r.mutation(api.app.scheduleLog, { delayMs: 1000, msg: 'cancelled' })) as string;
+		const cancelMe = (await r.mutation(api.app.scheduleLog, {
+			delayMs: 1000,
+			msg: 'cancelled'
+		})) as string;
 		await r.mutation(api.app.cancelJob, { id: cancelMe });
 		expect(await r.query(api.app.countLogs, {})).toBe(0);
 		await vi.advanceTimersByTimeAsync(999);
 		expect(await r.query(api.app.countLogs, {})).toBe(0);
 		await vi.advanceTimersByTimeAsync(5);
 		expect(await r.query(api.app.countLogs, {})).toBe(1);
-		const job = [...r.store.tables.get('_scheduled_functions')!.values()].find((d) => d._id === id)!;
+		const job = [...r.store.tables.get('_scheduled_functions')!.values()].find(
+			(d) => d._id === id
+		)!;
 		expect(job.name).toBe('app:writeLog');
 		expect(job.state).toEqual({ kind: 'success' });
-		const c = [...r.store.tables.get('_scheduled_functions')!.values()].find((d) => d._id === cancelMe)!;
+		const c = [...r.store.tables.get('_scheduled_functions')!.values()].find(
+			(d) => d._id === cancelMe
+		)!;
 		expect(c.state).toEqual({ kind: 'canceled' });
 	});
 
@@ -364,7 +446,12 @@ describe('subscriptions', () => {
 	it('delivers query errors to the error callback', async () => {
 		const r = rt();
 		let err: Error | undefined;
-		r.onUpdate(api.app.getItem, { id: 'zzzz' }, () => {}, (e) => (err = e));
+		r.onUpdate(
+			api.app.getItem,
+			{ id: 'zzzz' },
+			() => {},
+			(e) => (err = e)
+		);
 		await vi.waitFor(() => expect(err).toBeDefined());
 		expect(err!.message).toMatch(/ArgumentValidationError/);
 	});

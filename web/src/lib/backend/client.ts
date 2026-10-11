@@ -53,7 +53,8 @@ export function setupBackend(): void {
 
 export function useQuery<Query extends FunctionReference<'query'>>(
 	query: Query,
-	args: FunctionArgs<Query> | 'skip' | (() => FunctionArgs<Query> | 'skip') = {} as FunctionArgs<Query>,
+	args:
+		FunctionArgs<Query> | 'skip' | (() => FunctionArgs<Query> | 'skip') = {} as FunctionArgs<Query>,
 	options: UseQueryOptions<Query> | (() => UseQueryOptions<Query>) = {}
 ): UseQueryReturn<Query> {
 	return backendMode === 'convex'
@@ -116,7 +117,9 @@ export function getBackend(): Backend {
  * Local mode only: wipe the in-browser database (every open tab), clear the session and
  * seed demo data again. No-op (with a warning) in convex mode.
  */
-export async function resetLocalDb(options: { reseed?: boolean; clearSession?: boolean } = {}): Promise<void> {
+export async function resetLocalDb(
+	options: { reseed?: boolean; clearSession?: boolean } = {}
+): Promise<void> {
 	if (backendMode !== 'local') {
 		console.warn('resetLocalDb() only applies to the local backend.');
 		return;

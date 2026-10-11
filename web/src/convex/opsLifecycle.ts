@@ -71,7 +71,8 @@ export async function releaseRequestContainers(
 	ctx: MutationCtx,
 	requestId: Id<'releaseRequests'>,
 	now: number,
-	actor: string
+	actor: string,
+	opts: { schedule?: boolean } = {}
 ): Promise<ReleaseResult> {
 	const containers = await ctx.db
 		.query('containers')
@@ -93,8 +94,10 @@ export async function releaseRequestContainers(
 				now,
 				`${c.freeDays} free days, ending ${fmtDate(end)}. Detention is ${formatUsd(u(c.dailyRateUnits))} per day after that.`
 			);
-			await scheduleNextJob(ctx, c._id, now);
-			if (c.mode === 'depositFree') await scheduleKeyExpiryWarning(ctx, c._id);
+			if (opts.schedule !== false) {
+				await scheduleNextJob(ctx, c._id, now);
+				if (c.mode === 'depositFree') await scheduleKeyExpiryWarning(ctx, c._id);
+			}
 			await notify(ctx, {
 				orgId: c.importerOrgId,
 				kind: 'released',
@@ -397,7 +400,8 @@ export async function recordReturnOp(
 	input: ReturnInput,
 	by: 'line' | 'importer',
 	now: number,
-	actor: string
+	actor: string,
+	opts: { schedule?: boolean } = {}
 ): Promise<Doc<'containers'>> {
 	const c0 = await ctx.db.get(containerId);
 	if (!c0) throw appError('NOT_FOUND', 'Container not found.');
@@ -454,7 +458,7 @@ export async function recordReturnOp(
 		`EIR ${eir} at ${input.depot.trim()} on ${fmtDate(returnedAt)}. ${owed} Settlement window ends ${fmtDate(windowEnd)}.`,
 		actor
 	);
-	await scheduleNextJob(ctx, c._id, now);
+	if (opts.schedule !== false) await scheduleNextJob(ctx, c._id, now);
 	if (by === 'importer') {
 		await notify(ctx, {
 			orgId: c.lineOrgId,

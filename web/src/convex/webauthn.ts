@@ -2,8 +2,10 @@
  * WebAuthn assertion verification for passkey sign-in and approvals.
  * Uses `WebAuthnP256.verify` from ox, which is pure JS and runs in the default Convex runtime.
  */
+import { v } from 'convex/values';
 import * as WebAuthnP256 from 'ox/WebAuthnP256';
-import { env } from './helpers';
+import type { Doc } from './_generated/dataModel';
+import { appError, checkApprovalMethod, env, type Approval } from './helpers';
 
 export interface AssertionFields {
 	/** Hex of the authenticator data. */
@@ -43,4 +45,50 @@ export function verifyAssertion(args: { publicKeyHex: string; challenge: string;
 		...(rpId ? { rpId } : {}),
 		...(origins ? { origin: origins.split(',').map((s) => s.trim()) } : {})
 	} as WebAuthnP256.verify.Options);
+}
+
+/** Convex validator for the `approval` argument of payBatch and accessKeys.authorize. */
+export const approvalV = v.object({
+	method: v.union(v.literal('passkey'), v.literal('demo')),
+	credentialId: v.optional(v.string()),
+	/** Must equal the `payloadHash` returned by the matching preview/prepare query. */
+	payloadHash: v.optional(v.string()),
+	/** WebAuthn assertion over `payloadHash` as the challenge. Verified when present. */
+	assertion: v.optional(
+		v.object({
+			authenticatorData: v.string(),
+			clientDataJSON: v.string(),
+			signatureR: v.string(),
+			signatureS: v.string(),
+			userVerificationRequired: v.optional(v.boolean())
+		})
+	)
+});
+
+/**
+ * Validate how the user approved a payment or authorization. Returns how it was approved.
+ * A passkey approval with an assertion is cryptographically verified; without one it is accepted
+ * as demo-grade (the browser still showed the real WebAuthn prompt).
+ */
+export function checkApproval(
+	user: Doc<'users'>,
+	approval: Approval,
+	expectedPayloadHash: string
+): { approvedWith: 'passkey' | 'demo'; verified: boolean } {
+	const approvedWith = checkApprovalMethod(user, approval);
+	if (approval.payloadHash && approval.payloadHash.toLowerCase() !== expectedPayloadHash.toLowerCase()) {
+		throw appError('APPROVAL_REQUIRED', 'This request changed after you reviewed it. Review and approve again.');
+	}
+	if (approvedWith === 'passkey' && approval.assertion && user.passkey) {
+		const a = approval.assertion as AssertionFields;
+		let ok = false;
+		try {
+			ok = verifyAssertion({ publicKeyHex: user.passkey.publicKey, challenge: expectedPayloadHash, assertion: a });
+		} catch {
+			ok = false;
+		}
+		if (!ok) throw appError('APPROVAL_REQUIRED', 'The passkey approval could not be verified.');
+		return { approvedWith, verified: true };
+	}
+	return { approvedWith, verified: false };
 }
