@@ -1,0 +1,448 @@
+/*
+ * Portunus design tokens.
+ * Source of truth for every color, size and timing in the UI.
+ * Components and pages must use the semantic tokens (--color-*, --tone-*, --text-*,
+ * --space-*, --radius-*, --shadow-*, --ease-*, --duration-*), never the raw palette.
+ *
+ * Themes: light is the default. Dark applies with [data-theme="dark"] on <html>,
+ * or automatically from prefers-color-scheme unless [data-theme="light"] is set.
+ */
+
+:root {
+	/* ------------------------------------------------------------------ */
+	/* Raw palette (do not use directly in components)                      */
+	/* ------------------------------------------------------------------ */
+	--gray-0: #ffffff;
+	--gray-25: #fbfbfc;
+	--gray-50: #f6f7f9;
+	--gray-100: #eef0f3;
+	--gray-150: #e5e8ec;
+	--gray-200: #dadee4;
+	--gray-300: #c4cad3;
+	--gray-400: #9aa2ae;
+	--gray-500: #6b7380;
+	--gray-600: #525a66;
+	--gray-700: #3a414b;
+	--gray-800: #242931;
+	--gray-900: #14181e;
+	--gray-950: #0b0d11;
+
+	/* Petrol: the single brand accent. Means "enforced by the protocol". */
+	--petrol-50: #ecf5f8;
+	--petrol-100: #d6eaf1;
+	--petrol-200: #b0d6e3;
+	--petrol-300: #7fbcd1;
+	--petrol-400: #4b9fbb;
+	--petrol-500: #1f80a1;
+	--petrol-600: #0e6a8a;
+	--petrol-700: #0b5873;
+	--petrol-800: #0b465b;
+	--petrol-900: #0a3445;
+
+	/* ------------------------------------------------------------------ */
+	/* Typography                                                           */
+	/* ------------------------------------------------------------------ */
+	--font-sans:
+		'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+		'Helvetica Neue', Arial, sans-serif;
+	--font-display: 'Newsreader Variable', 'Newsreader', 'Iowan Old Style', Georgia, serif;
+	--font-mono:
+		'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+	/* Inter stylistic set: open 4/6/9, single-storey-free defaults kept. */
+	--font-features-sans: 'cv02', 'cv03', 'cv04', 'cv11';
+	--font-features-numeric: 'tnum', 'cv02', 'cv03', 'cv04', 'cv11';
+
+	/* size / line-height pairs */
+	--text-2xs: 0.6875rem; /* 11 */
+	--leading-2xs: 1rem;
+	--text-xs: 0.75rem; /* 12 */
+	--leading-xs: 1rem;
+	--text-sm: 0.8125rem; /* 13: default UI text inside the app */
+	--leading-sm: 1.25rem;
+	--text-base: 0.875rem; /* 14 */
+	--leading-base: 1.375rem;
+	--text-md: 1rem; /* 16: landing body, inputs on touch */
+	--leading-md: 1.5rem;
+	--text-lg: 1.125rem; /* 18 */
+	--leading-lg: 1.75rem;
+	--text-xl: 1.25rem; /* 20 */
+	--leading-xl: 1.75rem;
+	--text-2xl: 1.5rem; /* 24: page titles */
+	--leading-2xl: 2rem;
+	--text-3xl: 1.875rem; /* 30: KPI values */
+	--leading-3xl: 2.25rem;
+	--text-4xl: 2.5rem; /* 40: landing section titles */
+	--leading-4xl: 2.875rem;
+	--text-5xl: 3.5rem; /* 56 */
+	--leading-5xl: 3.75rem;
+	--text-6xl: 4.5rem; /* 72: landing hero */
+	--leading-6xl: 4.5rem;
+
+	--weight-regular: 420;
+	--weight-medium: 520;
+	--weight-semibold: 600;
+	--weight-bold: 680;
+
+	--tracking-tight: -0.022em;
+	--tracking-snug: -0.012em;
+	--tracking-normal: 0;
+	--tracking-wide: 0.04em;
+	--tracking-caps: 0.08em;
+
+	/* ------------------------------------------------------------------ */
+	/* Spacing (4px grid)                                                   */
+	/* ------------------------------------------------------------------ */
+	--space-0: 0;
+	--space-px: 1px;
+	--space-0-5: 0.125rem; /* 2 */
+	--space-1: 0.25rem; /* 4 */
+	--space-1-5: 0.375rem; /* 6 */
+	--space-2: 0.5rem; /* 8 */
+	--space-2-5: 0.625rem; /* 10 */
+	--space-3: 0.75rem; /* 12 */
+	--space-4: 1rem; /* 16 */
+	--space-5: 1.25rem; /* 20 */
+	--space-6: 1.5rem; /* 24 */
+	--space-8: 2rem; /* 32 */
+	--space-10: 2.5rem; /* 40 */
+	--space-12: 3rem; /* 48 */
+	--space-16: 4rem; /* 64 */
+	--space-20: 5rem; /* 80 */
+	--space-24: 6rem; /* 96 */
+	--space-32: 8rem; /* 128 */
+
+	/* layout */
+	--sidebar-width: 15rem; /* 240 */
+	--sidebar-rail-width: 4rem; /* 64 */
+	--topbar-height: 3.5rem; /* 56 */
+	--content-max: 80rem; /* 1280 app content */
+	--content-narrow: 45rem; /* 720 forms */
+	--page-max: 75rem; /* 1200 landing */
+	--gutter: clamp(1rem, 4vw, 2.5rem);
+
+	/* ------------------------------------------------------------------ */
+	/* Radius                                                               */
+	/* ------------------------------------------------------------------ */
+	--radius-xs: 4px;
+	--radius-sm: 6px;
+	--radius-md: 8px; /* buttons, inputs */
+	--radius-lg: 12px; /* cards */
+	--radius-xl: 16px; /* modals, hero panels */
+	--radius-full: 9999px;
+
+	/* ------------------------------------------------------------------ */
+	/* Motion                                                               */
+	/* ------------------------------------------------------------------ */
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
+	--duration-instant: 80ms;
+	--duration-fast: 140ms;
+	--duration-base: 200ms;
+	--duration-slow: 320ms;
+	--duration-slower: 520ms;
+
+	/* ------------------------------------------------------------------ */
+	/* Z-index                                                              */
+	/* ------------------------------------------------------------------ */
+	--z-base: 0;
+	--z-sticky: 10;
+	--z-nav: 30;
+	--z-dropdown: 40;
+	--z-overlay: 50;
+	--z-toast: 60;
+	--z-tooltip: 70;
+
+	/* ------------------------------------------------------------------ */
+	/* LIGHT THEME semantic colors                                          */
+	/* ------------------------------------------------------------------ */
+	color-scheme: light;
+
+	--color-bg: #f7f8fa; /* app canvas */
+	--color-bg-elevated: #ffffff;
+	--color-surface: #ffffff; /* cards, tables */
+	--color-surface-raised: #ffffff; /* popovers, menus, dialogs */
+	--color-surface-sunken: #f2f4f6; /* wells, code, table header */
+	--color-surface-hover: #f3f4f7;
+	--color-surface-active: #eaedf1;
+	--color-surface-inverse: #11151b; /* the "Why Tempo" band, tooltips */
+
+	--color-border-subtle: #eceef2;
+	--color-border: #e1e4e9;
+	--color-border-strong: #c9ced6;
+	--color-border-inverse: rgba(255, 255, 255, 0.12);
+
+	--color-text: #12161c;
+	--color-text-secondary: #4a525e;
+	--color-text-tertiary: #636b78; /* 4.9:1 on sunken, 5.4:1 on white */
+	--color-text-disabled: #a2a9b4;
+	--color-text-inverse: #f5f7fa;
+	--color-text-inverse-secondary: #a9b1bd;
+
+	/* primary actions are ink, not accent */
+	--color-primary: #14181e;
+	--color-primary-hover: #262c35;
+	--color-primary-active: #000000;
+	--color-primary-fg: #ffffff;
+
+	/* the one accent */
+	--color-accent: var(--petrol-600);
+	--color-accent-hover: var(--petrol-700);
+	--color-accent-fg: #ffffff;
+	--color-accent-text: var(--petrol-700); /* links, accent text on surfaces */
+	--color-accent-subtle: var(--petrol-50);
+	--color-accent-muted: var(--petrol-100);
+	--color-accent-border: var(--petrol-200);
+
+	--color-focus: #1f80a1;
+	--color-focus-ring: 0 0 0 2px var(--color-bg-elevated), 0 0 0 4px var(--color-focus);
+	--color-selection: rgba(31, 128, 161, 0.18);
+
+	/* the ink band (landing "Why Tempo", marketing moments) */
+	--color-band-bg: #0f1318;
+	--color-band-surface: rgba(255, 255, 255, 0.035);
+	--color-band-border: rgba(255, 255, 255, 0.09);
+	--color-band-text: #eef1f5;
+	--color-band-text-secondary: #a7b0bc;
+	--color-band-accent: #6cc0de;
+	--color-overlay: rgba(14, 17, 22, 0.42);
+	--color-skeleton: #eceef2;
+	--color-skeleton-shine: #f6f7f9;
+
+	/* tones: fg (text/icon), bg (fill), border, solid (dots, bars) */
+	--tone-neutral-fg: #4a525e;
+	--tone-neutral-bg: #f1f3f5;
+	--tone-neutral-border: #dde1e6;
+	--tone-neutral-solid: #8a929e;
+
+	--tone-protocol-fg: #0b5873;
+	--tone-protocol-bg: #eaf4f8;
+	--tone-protocol-border: #bcdbe6;
+	--tone-protocol-solid: #0e6a8a;
+
+	--tone-info-fg: #3a44a8;
+	--tone-info-bg: #eff0fc;
+	--tone-info-border: #d4d8f6;
+	--tone-info-solid: #5561d6;
+
+	--tone-success-fg: #17663f;
+	--tone-success-bg: #ebf6ef;
+	--tone-success-border: #c2e3cf;
+	--tone-success-solid: #1f8a57;
+
+	--tone-warning-fg: #855400;
+	--tone-warning-bg: #fdf6e4;
+	--tone-warning-border: #f0dca6;
+	--tone-warning-solid: #d29409;
+
+	--tone-caution-fg: #9c3a0b;
+	--tone-caution-bg: #fdf0e8;
+	--tone-caution-border: #f4cfb9;
+	--tone-caution-solid: #d9631f;
+
+	--tone-danger-fg: #b0261b;
+	--tone-danger-bg: #fdefed;
+	--tone-danger-border: #f3cbc6;
+	--tone-danger-solid: #d93a2b;
+
+	/* elevation: hairline + soft shadow, never heavy */
+	--shadow-xs: 0 1px 0 rgba(16, 20, 26, 0.04);
+	--shadow-sm: 0 1px 2px rgba(16, 20, 26, 0.06), 0 0 0 1px rgba(16, 20, 26, 0.02);
+	--shadow-md: 0 1px 2px rgba(16, 20, 26, 0.05), 0 4px 12px -2px rgba(16, 20, 26, 0.08);
+	--shadow-lg: 0 2px 4px rgba(16, 20, 26, 0.04), 0 12px 32px -8px rgba(16, 20, 26, 0.16);
+	--shadow-overlay:
+		0 0 0 1px rgba(16, 20, 26, 0.06), 0 8px 16px -4px rgba(16, 20, 26, 0.08),
+		0 24px 64px -12px rgba(16, 20, 26, 0.24);
+	--shadow-inset: inset 0 1px 1px rgba(16, 20, 26, 0.04);
+}
+
+/* ---------------------------------------------------------------------- */
+/* DARK THEME. Duplicated for the explicit attribute and the system query. */
+/* Keep the two blocks identical.                                          */
+/* ---------------------------------------------------------------------- */
+:root[data-theme='dark'] {
+	color-scheme: dark;
+
+	--color-bg: #0b0d11;
+	--color-bg-elevated: #111419;
+	--color-surface: #111419;
+	--color-surface-raised: #181c22;
+	--color-surface-sunken: #0e1115;
+	--color-surface-hover: #181c22;
+	--color-surface-active: #1f242b;
+	--color-surface-inverse: #f2f4f7;
+
+	--color-border-subtle: #1a1e24;
+	--color-border: #232830;
+	--color-border-strong: #343b45;
+	--color-border-inverse: rgba(10, 12, 16, 0.12);
+
+	--color-text: #eef1f5;
+	--color-text-secondary: #aab2be;
+	--color-text-tertiary: #858e9b;
+	--color-text-disabled: #555d69;
+	--color-text-inverse: #12161c;
+	--color-text-inverse-secondary: #4a525e;
+
+	--color-primary: #eef1f5;
+	--color-primary-hover: #ffffff;
+	--color-primary-active: #d6dbe2;
+	--color-primary-fg: #0b0d11;
+
+	--color-accent: #3c9cbf;
+	--color-accent-hover: #5bb1d0;
+	--color-accent-fg: #061318;
+	--color-accent-text: #6cc0de;
+	--color-accent-subtle: rgba(60, 156, 191, 0.12);
+	--color-accent-muted: rgba(60, 156, 191, 0.2);
+	--color-accent-border: rgba(108, 192, 222, 0.32);
+
+	--color-focus: #6cc0de;
+	--color-focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-focus);
+	--color-selection: rgba(108, 192, 222, 0.28);
+	--color-band-bg: #12161c;
+	--color-band-surface: rgba(255, 255, 255, 0.03);
+	--color-band-border: rgba(255, 255, 255, 0.08);
+	--color-overlay: rgba(0, 0, 0, 0.6);
+	--color-skeleton: #191d23;
+	--color-skeleton-shine: #22272e;
+
+	--tone-neutral-fg: #b3bbc6;
+	--tone-neutral-bg: rgba(170, 178, 190, 0.1);
+	--tone-neutral-border: rgba(170, 178, 190, 0.2);
+	--tone-neutral-solid: #7d8693;
+
+	--tone-protocol-fg: #7ccae6;
+	--tone-protocol-bg: rgba(60, 156, 191, 0.12);
+	--tone-protocol-border: rgba(108, 192, 222, 0.28);
+	--tone-protocol-solid: #3c9cbf;
+
+	--tone-info-fg: #a9b0f5;
+	--tone-info-bg: rgba(110, 120, 230, 0.13);
+	--tone-info-border: rgba(140, 150, 240, 0.28);
+	--tone-info-solid: #7480e6;
+
+	--tone-success-fg: #6fd39f;
+	--tone-success-bg: rgba(47, 170, 110, 0.12);
+	--tone-success-border: rgba(80, 200, 140, 0.26);
+	--tone-success-solid: #34b073;
+
+	--tone-warning-fg: #f0c560;
+	--tone-warning-bg: rgba(220, 165, 40, 0.12);
+	--tone-warning-border: rgba(240, 197, 96, 0.26);
+	--tone-warning-solid: #e0a722;
+
+	--tone-caution-fg: #f6a26f;
+	--tone-caution-bg: rgba(230, 110, 45, 0.13);
+	--tone-caution-border: rgba(246, 162, 111, 0.28);
+	--tone-caution-solid: #e8763a;
+
+	--tone-danger-fg: #f59a90;
+	--tone-danger-bg: rgba(225, 70, 55, 0.13);
+	--tone-danger-border: rgba(245, 154, 144, 0.28);
+	--tone-danger-solid: #e5574a;
+
+	--shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.3);
+	--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.02);
+	--shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px -4px rgba(0, 0, 0, 0.5);
+	--shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.35), 0 16px 40px -8px rgba(0, 0, 0, 0.6);
+	--shadow-overlay:
+		0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 16px -4px rgba(0, 0, 0, 0.4),
+		0 28px 72px -12px rgba(0, 0, 0, 0.7);
+	--shadow-inset: inset 0 1px 1px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		color-scheme: dark;
+
+		--color-bg: #0b0d11;
+		--color-bg-elevated: #111419;
+		--color-surface: #111419;
+		--color-surface-raised: #181c22;
+		--color-surface-sunken: #0e1115;
+		--color-surface-hover: #181c22;
+		--color-surface-active: #1f242b;
+		--color-surface-inverse: #f2f4f7;
+
+		--color-border-subtle: #1a1e24;
+		--color-border: #232830;
+		--color-border-strong: #343b45;
+		--color-border-inverse: rgba(10, 12, 16, 0.12);
+
+		--color-text: #eef1f5;
+		--color-text-secondary: #aab2be;
+		--color-text-tertiary: #858e9b;
+		--color-text-disabled: #555d69;
+		--color-text-inverse: #12161c;
+		--color-text-inverse-secondary: #4a525e;
+
+		--color-primary: #eef1f5;
+		--color-primary-hover: #ffffff;
+		--color-primary-active: #d6dbe2;
+		--color-primary-fg: #0b0d11;
+
+		--color-accent: #3c9cbf;
+		--color-accent-hover: #5bb1d0;
+		--color-accent-fg: #061318;
+		--color-accent-text: #6cc0de;
+		--color-accent-subtle: rgba(60, 156, 191, 0.12);
+		--color-accent-muted: rgba(60, 156, 191, 0.2);
+		--color-accent-border: rgba(108, 192, 222, 0.32);
+
+		--color-focus: #6cc0de;
+		--color-focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-focus);
+		--color-selection: rgba(108, 192, 222, 0.28);
+		--color-band-bg: #12161c;
+		--color-band-surface: rgba(255, 255, 255, 0.03);
+		--color-band-border: rgba(255, 255, 255, 0.08);
+		--color-overlay: rgba(0, 0, 0, 0.6);
+		--color-skeleton: #191d23;
+		--color-skeleton-shine: #22272e;
+
+		--tone-neutral-fg: #b3bbc6;
+		--tone-neutral-bg: rgba(170, 178, 190, 0.1);
+		--tone-neutral-border: rgba(170, 178, 190, 0.2);
+		--tone-neutral-solid: #7d8693;
+
+		--tone-protocol-fg: #7ccae6;
+		--tone-protocol-bg: rgba(60, 156, 191, 0.12);
+		--tone-protocol-border: rgba(108, 192, 222, 0.28);
+		--tone-protocol-solid: #3c9cbf;
+
+		--tone-info-fg: #a9b0f5;
+		--tone-info-bg: rgba(110, 120, 230, 0.13);
+		--tone-info-border: rgba(140, 150, 240, 0.28);
+		--tone-info-solid: #7480e6;
+
+		--tone-success-fg: #6fd39f;
+		--tone-success-bg: rgba(47, 170, 110, 0.12);
+		--tone-success-border: rgba(80, 200, 140, 0.26);
+		--tone-success-solid: #34b073;
+
+		--tone-warning-fg: #f0c560;
+		--tone-warning-bg: rgba(220, 165, 40, 0.12);
+		--tone-warning-border: rgba(240, 197, 96, 0.26);
+		--tone-warning-solid: #e0a722;
+
+		--tone-caution-fg: #f6a26f;
+		--tone-caution-bg: rgba(230, 110, 45, 0.13);
+		--tone-caution-border: rgba(246, 162, 111, 0.28);
+		--tone-caution-solid: #e8763a;
+
+		--tone-danger-fg: #f59a90;
+		--tone-danger-bg: rgba(225, 70, 55, 0.13);
+		--tone-danger-border: rgba(245, 154, 144, 0.28);
+		--tone-danger-solid: #e5574a;
+
+		--shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.3);
+		--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.02);
+		--shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px -4px rgba(0, 0, 0, 0.5);
+		--shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.35), 0 16px 40px -8px rgba(0, 0, 0, 0.6);
+		--shadow-overlay:
+			0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 16px -4px rgba(0, 0, 0, 0.4),
+			0 28px 72px -12px rgba(0, 0, 0, 0.7);
+		--shadow-inset: inset 0 1px 1px rgba(0, 0, 0, 0.3);
+	}
+}
