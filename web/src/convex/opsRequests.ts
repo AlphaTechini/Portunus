@@ -6,10 +6,13 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { appError, chainMode, env, logEvent, notify, randomCode } from './helpers';
 import { checkContainerNumber } from '../lib/shared/domain/containerNumber';
-import { DEFAULT_MAX_DETENTION_DAYS } from '../lib/shared/domain/constants';
+import {
+	DEFAULT_CLEAN_RETURNS_FOR_DEPOSIT_FREE,
+	DEFAULT_MAX_DETENTION_DAYS
+} from '../lib/shared/domain/constants';
 import { depositAddressFor, DEFAULT_ENV_PREFIX } from '../lib/shared/domain/virtualAddress';
 import { formatUsd } from '../lib/shared/domain/money';
-import type { DepositMode } from '../lib/shared/domain/rules';
+import { suggestedMode, type DepositMode } from '../lib/shared/domain/rules';
 
 type ContainerType = Doc<'containers'>['type'];
 
@@ -73,6 +76,47 @@ export async function ensureRelationship(
 		resolverOrgId: await defaultResolver(ctx, line)
 	});
 	return (await ctx.db.get(id))!;
+}
+
+/**
+ * Deposit-free is only for importers with a clean track record: the same rule as
+ * `orgs.listImporters` `suggestedMode` (clean returns at the line's threshold, no open disputes).
+ * Called by the public `releaseRequests.create`; the seed calls `createReleaseRequest` directly.
+ */
+export async function assertDepositFreeEligible(
+	ctx: MutationCtx,
+	line: Doc<'organizations'>,
+	importerOrgId: Id<'organizations'>
+): Promise<void> {
+	const importer = await ctx.db.get(importerOrgId);
+	if (!importer || importer.kind !== 'importer') return; // createReleaseRequest reports NOT_FOUND
+	const rel = await ctx.db
+		.query('relationships')
+		.withIndex('by_pair', (q) => q.eq('lineOrgId', line._id).eq('importerOrgId', importerOrgId))
+		.unique();
+	const openDisputes = (
+		await ctx.db
+			.query('disputes')
+			.withIndex('by_line_status', (q) => q.eq('lineOrgId', line._id).eq('status', 'open'))
+			.collect()
+	).filter((d) => d.importerOrgId === importerOrgId).length;
+	const threshold = line.cleanReturnsForDepositFree ?? DEFAULT_CLEAN_RETURNS_FOR_DEPOSIT_FREE;
+	const cleanReturns = rel?.cleanReturns ?? 0;
+	if (
+		suggestedMode({ cleanReturns, openDisputes, cleanReturnsForDepositFree: threshold }) ===
+		'depositFree'
+	)
+		return;
+	const name = importer.name;
+	const reason =
+		openDisputes > 0
+			? `${name} has ${openDisputes} open dispute${openDisputes === 1 ? '' : 's'}.`
+			: `${name} has ${cleanReturns} clean return${cleanReturns === 1 ? '' : 's'} with you; deposit-free needs ${threshold}.`;
+	throw appError(
+		'NOT_ELIGIBLE',
+		`${reason} Use a held deposit for this request.`,
+		{ cleanReturns, openDisputes, required: threshold }
+	);
 }
 
 async function uniqueRequestCode(ctx: MutationCtx): Promise<string> {

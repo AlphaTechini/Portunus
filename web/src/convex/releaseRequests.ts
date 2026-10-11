@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { appError, loadRequestFor, productNow, requireLine, requireSession } from './helpers';
-import { createReleaseRequest } from './opsRequests';
+import { assertDepositFreeEligible, createReleaseRequest } from './opsRequests';
 import { releaseRequestContainers, type ReleaseResult } from './opsLifecycle';
 import { containerType, depositMode } from './schema';
 import { containerView, publicOrg, simBalance, termsFor, type ContainerView } from './views';
@@ -24,6 +24,7 @@ export const create = mutation({
 		const { user, org } = await requireLine(ctx, a.sessionToken);
 		const { sessionToken: _t, ...rest } = a;
 		void _t;
+		if (a.mode === 'depositFree') await assertDepositFreeEligible(ctx, org, a.importerOrgId);
 		const r = await createReleaseRequest(ctx, {
 			...rest,
 			line: org,
