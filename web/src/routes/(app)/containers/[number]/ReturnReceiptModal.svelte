@@ -3,7 +3,7 @@
 	 * Importer: the silent-line rule. If the line never recorded the return, the importer submits the
 	 * depot's return receipt. The line then has the settlement window to contest it.
 	 */
-	import { Button, Field, Input, Modal, formatDays, toast } from '#lib/ui';
+	import { Button, Field, Input, Modal, formatContainerNumber, formatDays, toast } from '#lib/ui';
 	import { errorMessage, useProductNow } from '#lib/app';
 	import { api } from '#lib/app';
 	import { useAuthedMutation } from '#lib/backend';
@@ -93,7 +93,12 @@
 	}
 </script>
 
-<Modal bind:open title="Submit return receipt" description="Container {number}" dismissible={!busy}>
+<Modal
+	bind:open
+	title="Submit return receipt"
+	description="Container {formatContainerNumber(number)}"
+	dismissible={!busy}
+>
 	<form
 		class="form"
 		onsubmit={(e) => {
@@ -104,8 +109,8 @@
 		<p class="rule">
 			Use this only if the line has not recorded the return. The return date must be at least
 			{graceHours}
-			{graceHours === 1 ? 'hour' : 'hours'} old. The line then has {formatDays(windowDays)} to contest the receipt, or the
-			settlement and refund proceed.
+			{graceHours === 1 ? 'hour' : 'hours'} old. The line then has {formatDays(windowDays)} to contest
+			the receipt, or the settlement and refund proceed.
 		</p>
 		<Field label="Return receipt number (EIR)" error={touched ? errors.eir : ''}>
 			<Input

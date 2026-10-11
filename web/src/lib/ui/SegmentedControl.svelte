@@ -113,6 +113,7 @@
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
 		isolation: isolate;
+		max-width: 100%;
 	}
 
 	.pill.full {

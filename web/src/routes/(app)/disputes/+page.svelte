@@ -44,7 +44,7 @@
 		{ key: 'raised', label: 'Raised by', hideBelow: 'lg' },
 		{ key: 'disputed', label: 'Disputed', numeric: true },
 		{ key: 'undisputed', label: 'Settled already', numeric: true, hideBelow: 'lg' },
-		{ key: 'reason', label: 'Reason', hideBelow: 'md' },
+		{ key: 'reason', label: 'Reason', hideBelow: 'lg' },
 		{ key: 'opened', label: 'Opened', hideBelow: 'sm', width: '7rem' },
 		{ key: 'status', label: 'Status', hideBelow: 'sm' },
 		{ key: 'act', label: 'Open', srOnlyLabel: true, align: 'right', width: '6rem' }
@@ -111,7 +111,7 @@
 					</div>
 				{:else if col.key === 'disputed'}
 					<Money amount={units(r.disputedUnits)} size="sm" tone="negative" />
-					{#if r.status === 'open'}<div class="sub">held in escrow</div>{/if}
+					{#if r.status === 'open'}<div class="sub">still held</div>{/if}
 				{:else if col.key === 'undisputed'}
 					{#if r.status === 'open'}<Money
 							amount={undisputed(r)}
@@ -121,7 +121,7 @@
 				{:else if col.key === 'reason'}
 					<span class="reason" title={r.reason}>{r.reason}</span>
 				{:else if col.key === 'opened'}
-					{formatDate(r.openedAt)}
+					<span class="nowrap">{formatDate(r.openedAt)}</span>
 				{:else if col.key === 'status'}
 					{#if r.status === 'open'}
 						<Badge tone="danger" dot>{r.canResolve ? 'Needs your decision' : 'Open'}</Badge>
@@ -162,9 +162,12 @@
 		font-size: var(--text-xs);
 		color: var(--color-text-tertiary);
 	}
+	.nowrap {
+		white-space: nowrap;
+	}
 	.reason {
 		display: block;
-		max-width: 12rem;
+		max-width: 10rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;

@@ -4,7 +4,7 @@
 	 * what revoking means for the line's guarantee.
 	 */
 	import KeyRound from '@lucide/svelte/icons/key-round';
-	import { Button, Modal, formatMoney, toast } from '#lib/ui';
+	import { Button, Modal, formatContainerNumber, formatMoney, toast } from '#lib/ui';
 	import { useAuthedAction } from '#lib/backend';
 	import { api } from './api';
 	import { errorMessage } from './errors';
@@ -34,8 +34,8 @@
 			open = false;
 			toast.success('Access key revoked', {
 				description: r.midFlight
-					? `${lineName} can no longer pull detention for ${number}.`
-					: `The key for ${number} is closed.`
+					? `${lineName} can no longer pull detention for ${formatContainerNumber(number)}.`
+					: `The key for ${formatContainerNumber(number)} is closed.`
 			});
 			onrevoked?.();
 		} catch (e) {
@@ -62,7 +62,7 @@
 <Modal
 	bind:open
 	title="Revoke this access key?"
-	description="Container {number}"
+	description="Container {formatContainerNumber(number)}"
 	size="sm"
 	dismissible={!busy}
 >

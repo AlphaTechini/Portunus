@@ -106,7 +106,8 @@
 			{#if hint}<span class="ctx">{hint}</span>{/if}
 		</div>
 	{/if}
-	{#if footer}<div class="foot">{@render footer()}</div>{/if}
+	{#if footer}<span class="push" aria-hidden="true"></span>
+		<div class="foot">{@render footer()}</div>{/if}
 </svelte:element>
 
 <style>
@@ -120,6 +121,8 @@
 	}
 
 	.framed {
+		/* tiles in a KPI row share one height; the footer sits on the bottom edge */
+		height: 100%;
 		padding: var(--space-5);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
@@ -218,8 +221,26 @@
 		color: var(--color-text-tertiary);
 	}
 
+	@media (max-width: 767px) {
+		.framed {
+			padding: var(--space-4);
+		}
+
+		.value {
+			font-size: var(--text-2xl);
+			line-height: var(--leading-2xl);
+		}
+
+		.value-row {
+			min-height: 0;
+		}
+	}
+
+	.push {
+		flex: 1;
+	}
+
 	.foot {
-		margin-top: var(--space-2);
 		padding-top: var(--space-3);
 		border-top: 1px solid var(--color-border-subtle);
 	}

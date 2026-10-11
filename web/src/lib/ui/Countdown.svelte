@@ -25,6 +25,7 @@
 		/** 'segments' big digits with units; 'inline' short text for tables. */
 		variant?: 'segments' | 'inline';
 		size?: 'sm' | 'md' | 'lg';
+		/** Default: true for 'segments', false for 'inline' ("4d 6h" in tables, no ticking seconds). */
 		showSeconds?: boolean;
 		/** Show the absolute end time under the clock. */
 		showTarget?: boolean;
@@ -43,13 +44,14 @@
 		warnWithin = 86_400_000,
 		variant = 'segments',
 		size = 'md',
-		showSeconds = true,
+		showSeconds: showSecondsProp,
 		showTarget = false,
 		onElapsed,
 		now: frozen,
 		class: className = ''
 	}: Props = $props();
 
+	const showSeconds = $derived(showSecondsProp ?? variant === 'segments');
 	let tick = $state(Date.now());
 	let fired = false;
 	const current = $derived(frozen ?? tick);
@@ -201,6 +203,20 @@
 
 	.state-elapsed .sign {
 		color: var(--fg);
+	}
+
+	/* the overdue "+" reads at the size of the units, not as a stray footnote mark */
+	.sm .sign {
+		font-size: var(--text-sm);
+	}
+
+	.md .sign {
+		font-size: var(--text-lg);
+	}
+
+	.lg .sign {
+		font-size: var(--text-2xl);
+		font-weight: var(--weight-semibold);
 	}
 
 	.sm .v {

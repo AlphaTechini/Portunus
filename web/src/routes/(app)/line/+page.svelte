@@ -27,6 +27,7 @@
 		StatusPill,
 		Table,
 		TempoTag,
+		formatContainerNumber,
 		formatDate,
 		formatDuration,
 		formatMoney,
@@ -274,6 +275,7 @@
 					{:else}
 						<SeriesChart
 							points={chartPoints}
+							kind={seriesKey === 'cashHeldPerDay' ? 'area' : 'bars'}
 							label={seriesKey === 'cashHeldPerDay' ? 'Deposits held' : 'Refunded per day'}
 						/>
 					{/if}
@@ -442,7 +444,7 @@
 										<span class="feed-meta muted">
 											{#if e.containerNumber}
 												<a class="mono" href={containerHref(e.containerNumber)}
-													>{e.containerNumber}</a
+													>{formatContainerNumber(e.containerNumber)}</a
 												>
 												·
 											{/if}

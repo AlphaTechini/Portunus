@@ -3,7 +3,16 @@
 	 * Importer: dispute the posted charges, once. The disputed amount stays held by the settlement
 	 * contract; everything undisputed settles immediately.
 	 */
-	import { Button, Field, Input, Modal, Textarea, formatMoney, toast } from '#lib/ui';
+	import {
+		Button,
+		Field,
+		Input,
+		Modal,
+		Textarea,
+		formatContainerNumber,
+		formatMoney,
+		toast
+	} from '#lib/ui';
 	import { errorMessage, fromUnits, toUnits, units, useApp } from '#lib/app';
 	import { api } from '#lib/app';
 	import { useAuthedAction } from '#lib/backend';
@@ -80,7 +89,7 @@
 <Modal
 	bind:open
 	title="Dispute charges"
-	description="Container {number}. You can dispute once, inside the settlement window."
+	description="Container {formatContainerNumber(number)}. You can dispute once, inside the settlement window."
 	dismissible={!busy}
 >
 	<form

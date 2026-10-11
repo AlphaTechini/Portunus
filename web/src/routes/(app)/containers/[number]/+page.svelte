@@ -30,6 +30,7 @@
 		Tabs,
 		TempoTag,
 		Timeline,
+		formatContainerNumber,
 		formatDate,
 		formatDateTime,
 		formatDays,
@@ -303,7 +304,9 @@
 	);
 </script>
 
-<svelte:head><title>{c ? c.number : 'Container'} · Portunus</title></svelte:head>
+<svelte:head
+	><title>{c ? formatContainerNumber(c.number) : 'Container'} · Portunus</title></svelte:head
+>
 
 {#if ref.error}
 	<PageHeader
@@ -326,7 +329,7 @@
 		title="Container"
 		breadcrumbs={[
 			{ label: 'Containers', href: '/containers' },
-			{ label: decodeURIComponent(page.params.number ?? '') }
+			{ label: formatContainerNumber(decodeURIComponent(page.params.number ?? '')) }
 		]}
 	/>
 	<div class="summary">
@@ -355,7 +358,10 @@
 	<PageHeader
 		title={c.number}
 		subtitle="B/L {c.billOfLading} · {c.lineName} to {c.importerName} · {d.request.portOfDischarge}"
-		breadcrumbs={[{ label: 'Containers', href: '/containers' }, { label: c.number }]}
+		breadcrumbs={[
+			{ label: 'Containers', href: '/containers' },
+			{ label: formatContainerNumber(c.number) }
+		]}
 	>
 		{#snippet titleSnippet()}
 			<ContainerNumber value={c.number} type={c.type} size="lg" copyable />
@@ -663,6 +669,11 @@
 							size="lg"
 						/>
 					{/if}
+					<p class="muted free-terms">
+						{formatDays(c.freeDays)} free{c.releasedAt ? ` from ${formatDate(c.releasedAt)}` : ''},
+						then
+						{formatMoney(units(c.dailyRateUnits))} per started day.
+					</p>
 				{/if}
 			</Card>
 
@@ -706,7 +717,7 @@
 							{/if}
 						</div>
 					{/if}
-					{#if running && nextDayAt}
+					{#if running && nextDayAt && (held || pulledToday === 0n)}
 						<p class="muted day-line">
 							Day {days}, next day starts in
 							<ProductCountdown target={nextDayAt} variant="inline" size="sm" />
@@ -738,7 +749,9 @@
 								? 'per day, key revoked'
 								: 'per day, not authorized yet'}
 					</p>
-					<p class="muted"><strong class="nm">No money moves</strong> until a charge is owed.</p>
+					<p class="muted prose">
+						<strong class="nm">No money moves</strong> until a charge is owed.
+					</p>
 					{#if key?.status === 'active'}
 						<TempoTag
 							feature="access_key"
@@ -766,7 +779,10 @@
 					>
 						<div class="tags">
 							<TempoTag feature="memo" size="sm" />
-							{#if hasRefusal}<TempoTag feature="recurring_limit" size="sm" />{/if}
+							{#if hasRefusal && !lastPull?.refused}<TempoTag
+									feature="recurring_limit"
+									size="sm"
+								/>{/if}
 						</div>
 
 						{#if trail.length === 0}
@@ -1021,6 +1037,10 @@
 		font-size: var(--text-xs);
 		color: var(--color-text-secondary);
 	}
+	/* a sentence, not a flex row: the flex gap plus the space doubled the gap before "until" */
+	.prose {
+		display: block;
+	}
 	.nm {
 		color: var(--color-text);
 		font-weight: var(--weight-medium);
@@ -1046,6 +1066,11 @@
 	}
 	.day-line {
 		margin-top: var(--space-3);
+	}
+	.free-terms {
+		margin-top: var(--space-4);
+		padding-top: var(--space-3);
+		border-top: 1px solid var(--color-border-subtle);
 	}
 
 	.settled {

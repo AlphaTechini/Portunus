@@ -502,7 +502,7 @@
 												<span class="type">{t.label}</span>
 												<span class="sub">{t.note}</span>
 											</th>
-											<td>
+											<td data-label="Free days">
 												<Field
 													label="Free days for {t.label}"
 													hideLabel
@@ -516,7 +516,7 @@
 													/>
 												</Field>
 											</td>
-											<td>
+											<td data-label="Daily detention">
 												<Field
 													label="Daily detention for {t.label}"
 													hideLabel
@@ -530,7 +530,7 @@
 													/>
 												</Field>
 											</td>
-											<td>
+											<td data-label="Deposit">
 												<Field
 													label="Deposit for {t.label}"
 													hideLabel
@@ -757,6 +757,50 @@
 	.type {
 		display: block;
 		font-family: var(--font-mono);
+	}
+
+	/* Phones: one block per container type, its three inputs side by side with their labels. */
+	@media (max-width: 560px) {
+		.rates,
+		.rates tbody {
+			display: block;
+			min-width: 0;
+		}
+
+		.rates thead {
+			display: none;
+		}
+
+		.rates tr {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: var(--space-2);
+			padding: var(--space-3) var(--space-4);
+			border-bottom: 1px solid var(--color-border-subtle);
+		}
+
+		.rates tbody tr:last-child {
+			border-bottom: 0;
+		}
+
+		.rates td,
+		.rates tbody th {
+			display: block;
+			padding: 0;
+			border: 0;
+		}
+
+		.rates tbody th {
+			grid-column: 1 / -1;
+		}
+
+		.rates td::before {
+			content: attr(data-label);
+			display: block;
+			margin-bottom: var(--space-1);
+			font-size: var(--text-xs);
+			color: var(--color-text-tertiary);
+		}
 	}
 
 	@media (max-width: 860px) {

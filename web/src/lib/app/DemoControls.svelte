@@ -32,6 +32,15 @@
 	const extra = $derived(getDemoPageActions());
 	const isLine = $derived(app.role === 'line');
 
+	// Lets the shell reserve room for the docked pill (sidebar footer), so it never covers content.
+	$effect(() => {
+		if (!visible) return;
+		document.documentElement.dataset.demoControls = '';
+		return () => {
+			delete document.documentElement.dataset.demoControls;
+		};
+	});
+
 	onMount(() => {
 		try {
 			open = localStorage.getItem(KEY) === '1';
@@ -79,9 +88,9 @@
 			data-testid="demo-toggle"
 		>
 			<SlidersHorizontal size={14} strokeWidth={1.75} aria-hidden="true" />
-			<span>Demo</span>
+			<span class="word">Demo</span>
 			<span class="sep" aria-hidden="true"></span>
-			<span class="t tabular">{formatDateTime(now).slice(-5)}</span>
+			<span class="t tabular" title="Product clock">{formatDateTime(now).slice(-5)}</span>
 			<span class="sr-only">{open ? 'Collapse' : 'Expand'} demo controls</span>
 		</button>
 		{#if open}
@@ -372,6 +381,81 @@
 		font-size: var(--text-xs);
 		line-height: var(--leading-xs);
 		color: var(--color-text-tertiary);
+	}
+
+	/*
+	 * Desktop: docked in the sidebar footer (bottom left, sidebar width), so it never sits on top of
+	 * page content. The shell reserves the room (`html[data-demo-controls]` in AppShell).
+	 */
+	@media (min-width: 1024px) {
+		.demo {
+			left: var(--space-3);
+			right: auto;
+			bottom: var(--space-3);
+			align-items: flex-start;
+		}
+
+		.toggle {
+			width: calc(var(--sidebar-width) - var(--space-6));
+			border-radius: var(--radius-md);
+			box-shadow: var(--shadow-xs);
+		}
+
+		.toggle:focus-visible {
+			box-shadow: var(--shadow-xs), var(--color-focus-ring);
+		}
+
+		.t {
+			margin-left: auto;
+		}
+
+		.sep {
+			display: none;
+		}
+
+		/* the open panel stays inside the sidebar column, over the nav, not over the page */
+		.panel {
+			width: calc(var(--sidebar-width) - var(--space-6));
+		}
+
+		.now {
+			font-size: var(--text-base);
+		}
+	}
+
+	/* Tablet and phone: a small round button; the label stays for screen readers. */
+	@media (max-width: 1023px) {
+		.toggle {
+			width: 2.75rem;
+			height: 2.75rem;
+			padding: 0;
+			justify-content: center;
+		}
+
+		.toggle :global(svg) {
+			width: 16px;
+			height: 16px;
+		}
+
+		.word,
+		.sep,
+		.t {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+		}
+	}
+
+	@media (min-width: 768px) and (max-width: 1023px) {
+		.demo {
+			left: calc((var(--sidebar-rail-width) - 2.75rem) / 2);
+			right: auto;
+			bottom: var(--space-3);
+			align-items: flex-start;
+		}
 	}
 
 	@media (max-width: 767px) {

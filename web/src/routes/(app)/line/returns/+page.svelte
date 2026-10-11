@@ -26,6 +26,7 @@
 		Table,
 		Tabs,
 		TempoTag,
+		formatContainerNumber,
 		formatDate,
 		formatDuration,
 		formatMoney,
@@ -386,7 +387,9 @@
 							/>
 						{/if}
 						{#each batch.outcomes.filter((o) => o.status !== 'settled') as o (o.containerId)}
-							<p class="skip">{o.number}: {o.reason ?? 'Skipped.'}</p>
+							<p class="skip">
+								{o.number ? formatContainerNumber(o.number) : 'Container'}: {o.reason ?? 'Skipped.'}
+							</p>
 						{/each}
 					</div>
 				</Card>

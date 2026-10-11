@@ -11,6 +11,7 @@
 		Badge,
 		Button,
 		Card,
+		ContainerNumber,
 		EmptyState,
 		Hash,
 		Money,
@@ -207,8 +208,11 @@
 						<div class="stack">
 							<Hash value={r.recipient} kind="address" />
 							{#if r.containerNumber}
-								<a class="mono small" href={containerHref(r.containerNumber)}>{r.containerNumber}</a
-								>
+								<ContainerNumber
+									value={r.containerNumber}
+									size="sm"
+									href={containerHref(r.containerNumber)}
+								/>
 							{/if}
 						</div>
 					{:else if c.key === 'amount'}

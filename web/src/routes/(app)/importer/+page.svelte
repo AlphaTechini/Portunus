@@ -119,7 +119,7 @@
 		{ key: 'number', label: 'Container' },
 		{ key: 'line', label: 'Line', hideBelow: 'md' },
 		{ key: 'state', label: 'Status' },
-		{ key: 'time', label: 'Free time', hideBelow: 'sm' },
+		{ key: 'time', label: 'Time left', hideBelow: 'sm' },
 		{ key: 'money', label: 'Deposit', numeric: true, hideBelow: 'sm' }
 	];
 
@@ -214,15 +214,15 @@
 				{/snippet}
 			</Stat>
 			<Stat
-				label="Average time from return to refund"
+				label="Return to refund"
 				icon={Timer}
 				loading={!d}
 				value={refundTime ? refundTime[0] : '–'}
 				unit={refundTime ? refundTime[1] : undefined}
 				hint={d
 					? d.refundCount
-						? `Across ${formatCount(d.refundCount)} ${d.refundCount === 1 ? 'refund' : 'refunds'}`
-						: 'No refunds yet'
+						? `Average time from return to refund, across ${formatCount(d.refundCount)} ${d.refundCount === 1 ? 'refund' : 'refunds'}`
+						: 'Average time from return to refund. No refunds yet'
 					: undefined}
 			>
 				{#snippet footer()}
@@ -242,7 +242,7 @@
 		{#if actionCount > 0}
 			<Card
 				title="Needs your action"
-				description="{actionCount} {actionCount === 1 ? 'item' : 'items'} waiting for you"
+				description="{actionCount} {actionCount === 1 ? 'item' : 'items'} waiting for you."
 			>
 				<ul class="actions" data-testid="needs-action">
 					{#each requestsToAct as r (r._id)}
@@ -360,14 +360,14 @@
 
 		<!-- Series -->
 		<section class="charts" aria-label="Trends">
-			<Card title="Cash held" description="Deposits held by the protocol, last 30 days">
+			<Card title="Cash held" description="Deposits held by the protocol, last 30 days.">
 				{#if d}
 					<SeriesChart points={heldPoints} kind="area" label="Cash held per day, last 30 days" />
 				{:else}
 					<Skeleton height="132px" />
 				{/if}
 			</Card>
-			<Card title="Cash freed per day" description="Refunds received, last 30 days">
+			<Card title="Cash freed per day" description="Refunds received, last 30 days.">
 				{#if d}
 					<SeriesChart points={refundPoints} kind="bars" label="Cash freed per day, last 30 days" />
 				{:else}
@@ -377,22 +377,26 @@
 		</section>
 
 		<!-- Containers -->
-		<section class="block">
-			<div class="block-head">
-				<h2 class="block-title">Containers out now</h2>
+		<Card
+			padding="none"
+			title="Containers"
+			description="Out now: in free time, in detention, or returned and waiting to settle."
+		>
+			{#snippet actions()}
 				<SegmentedControl
 					label="Filter containers"
 					size="sm"
 					bind:value={group}
 					options={[
 						{ value: 'all', label: 'All' },
-						{ value: 'free_time', label: 'In free time' },
-						{ value: 'detention', label: 'In detention' },
+						{ value: 'free_time', label: 'Free time' },
+						{ value: 'detention', label: 'Detention' },
 						{ value: 'returned', label: 'Returned' }
 					]}
 				/>
-			</div>
+			{/snippet}
 			<Table
+				framed={false}
 				{columns}
 				rows={shown}
 				rowKey={(c) => c._id}
@@ -439,12 +443,13 @@
 					{/if}
 				{/snippet}
 			</Table>
-		</section>
+		</Card>
 
 		<!-- Recent refunds -->
 		<Card
+			padding="none"
 			title="Recent refunds"
-			description="Last settlements, with the time from return to refund"
+			description="Last settlements, with the time from return to refund."
 		>
 			<Table
 				framed={false}
@@ -460,12 +465,7 @@
 				{#snippet cell(r, col)}
 					{#if col.key === 'number'}
 						<div class="cell-stack">
-							<ContainerNumber
-								value={r.c.number}
-								type={r.c.type}
-								size="sm"
-								href={containerHref(r.c.number)}
-							/>
+							<ContainerNumber value={r.c.number} size="sm" href={containerHref(r.c.number)} />
 							<span class="sub date">{formatDate(r.c.settledAt!)}</span>
 						</div>
 					{:else if col.key === 'amount'}
@@ -583,25 +583,6 @@
 	}
 	.allclear :global(svg) {
 		color: var(--tone-success-fg);
-	}
-
-	.block {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
-	.block-head {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-3);
-	}
-	.block-title {
-		margin: 0;
-		font-size: var(--text-xl);
-		font-weight: var(--weight-semibold);
-		letter-spacing: var(--tracking-snug);
 	}
 
 	.cell-stack {

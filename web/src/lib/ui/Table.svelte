@@ -273,6 +273,10 @@
 		.hide-md {
 			display: none;
 		}
+
+		.wrap {
+			--cell-px: var(--space-3);
+		}
 	}
 
 	@media (max-width: 479px) {

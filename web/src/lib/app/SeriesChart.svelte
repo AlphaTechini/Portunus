@@ -22,7 +22,7 @@
 	let width = $state(0);
 	let active = $state<number | null>(null);
 	const padX = 4;
-	const padTop = 10;
+	const padTop = 18;
 	const padBottom = 22;
 
 	const max = $derived(Math.max(1, ...points.map((p) => p.value)));
@@ -46,6 +46,12 @@
 			: ''
 	);
 	const barW = $derived(Math.max(2, Math.min(14, slot - 2)));
+	// Sparse bar series (a few active days in thirty) get their values written above the bars,
+	// and every empty day keeps a faint stub on the baseline so the time axis still reads.
+	const nonZero = $derived(points.filter((p) => p.value > 0).length);
+	const labelBars = $derived(kind === 'bars' && nonZero > 0 && nonZero <= 4);
+	const compactUsd = (v: number) =>
+		v >= 1000 ? `$${(v / 1000).toFixed(v % 1000 === 0 || v >= 10_000 ? 0 : 1)}k` : `$${Math.round(v)}`;
 
 	function pick(e: PointerEvent) {
 		const r = (e.currentTarget as SVGElement).getBoundingClientRect();
@@ -95,18 +101,37 @@
 			{:else}
 				{#each points as p, i (p.t)}
 					{@const h = Math.max(p.value > 0 ? 3 : 0, (p.value / max) * innerH)}
-					<rect
-						class="bar"
-						class:on={active === i}
-						x={xAt(i) - barW / 2}
-						y={padTop + innerH - h}
-						width={barW}
-						height={h}
-						rx="2"
-					/>
+					{#if p.value > 0}
+						<rect
+							class="bar"
+							class:on={active === i}
+							x={xAt(i) - barW / 2}
+							y={padTop + innerH - h}
+							width={barW}
+							height={h}
+							rx="2"
+						/>
+						{#if labelBars}
+							<text class="val" x={xAt(i)} y={padTop + innerH - h - 5} text-anchor="middle"
+								>{formatMoney(p.value)}</text
+							>
+						{/if}
+					{:else}
+						<rect
+							class="stub"
+							x={xAt(i) - barW / 2}
+							y={padTop + innerH - 3}
+							width={barW}
+							height="3"
+							rx="1"
+						/>
+					{/if}
 				{/each}
 			{/if}
 			<line class="base" x1={padX} x2={width - padX} y1={padTop + innerH} y2={padTop + innerH} />
+			{#if !labelBars && max > 1}
+				<text class="axis" x={padX} y={padTop - 2}>{compactUsd(max)}</text>
+			{/if}
 			<text class="axis" x={padX} y={height - 6}>{formatDate(points[0].t)}</text>
 			<text class="axis" x={width - padX} y={height - 6} text-anchor="end"
 				>{formatDate(points[points.length - 1].t)}</text
@@ -167,6 +192,16 @@
 	}
 	.bar.on {
 		opacity: 1;
+	}
+	.stub {
+		fill: var(--color-border);
+	}
+	.val {
+		fill: var(--color-text-secondary);
+		font-size: var(--text-2xs);
+		font-family: var(--font-sans);
+		font-weight: var(--weight-medium);
+		font-variant-numeric: tabular-nums;
 	}
 	.cross {
 		stroke: var(--color-border-strong);

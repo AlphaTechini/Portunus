@@ -18,7 +18,12 @@
 	} from '#lib/ui';
 	import { useAuthedMutation } from '#lib/backend';
 	import { api, errorMessage, units, useApp } from '#lib/app';
-	import { accrued, detentionDaysAt, settlementAmounts } from '#lib/shared/domain/rules.ts';
+	import {
+		accrued,
+		detentionDayDueAt,
+		detentionDaysAt,
+		settlementAmounts
+	} from '#lib/shared/domain/rules.ts';
 	import SplitBar from './SplitBar.svelte';
 	import { fromLocalInput, toLocalInput, type LineContainer } from './lineStatus.ts';
 
@@ -62,7 +67,16 @@
 	});
 
 	const c = $derived(container);
-	const returnedAt = $derived(when ? fromLocalInput(when) : NaN);
+	const returnedAt = $derived.by(() => {
+		const t = when ? fromLocalInput(when) : NaN;
+		// Entered to the minute: just after a detention pull, "now" can fall a few seconds before it.
+		// Count the return from that pull, as the backend does.
+		if (c?.mode === 'depositFree' && c.freeTimeEndsAt !== undefined && c.detentionDays > 0) {
+			const start = detentionDayDueAt(c.freeTimeEndsAt, c.detentionDays);
+			if (t < start && start - t < 60_000 && start <= app.now()) return start;
+		}
+		return t;
+	});
 	const dateError = $derived.by(() => {
 		if (!Number.isFinite(returnedAt)) return 'Enter the return date.';
 		if (returnedAt > app.now() + 60_000) return 'The return date cannot be in the future.';

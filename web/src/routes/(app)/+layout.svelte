@@ -164,8 +164,10 @@
 		{live}
 		homeHref={app.home}
 	>
-		{#snippet topbarEnd()}
+		{#snippet network()}
 			<ChainBadge />
+		{/snippet}
+		{#snippet topbarEnd()}
 			<NotificationsMenu />
 			<UserMenu />
 		{/snippet}

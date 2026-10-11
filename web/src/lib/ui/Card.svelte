@@ -116,9 +116,10 @@
 
 	.head {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: flex-start;
 		justify-content: space-between;
-		gap: var(--space-4);
+		gap: var(--space-3) var(--space-4);
 		padding: var(--pad) var(--pad) 0;
 	}
 
@@ -132,6 +133,8 @@
 		flex-direction: column;
 		gap: var(--space-1);
 		min-width: 0;
+		/* actions drop below the titles rather than squeezing the description */
+		flex: 1 1 14rem;
 	}
 
 	.title {
@@ -148,9 +151,11 @@
 
 	.actions {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-2);
 		flex-shrink: 0;
+		max-width: 100%;
 	}
 
 	.body {
@@ -182,5 +187,23 @@
 
 	.pad-none .foot {
 		padding: var(--space-3) var(--space-5);
+	}
+
+	@media (max-width: 767px) {
+		.card {
+			--pad: var(--space-4);
+		}
+
+		.pad-none {
+			--pad: 0;
+		}
+
+		.pad-none .head {
+			padding: var(--space-4);
+		}
+
+		.pad-none .foot {
+			padding: var(--space-3) var(--space-4);
+		}
 	}
 </style>

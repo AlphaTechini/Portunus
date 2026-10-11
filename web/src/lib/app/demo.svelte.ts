@@ -31,8 +31,16 @@ export function useDemoActions() {
 	const resetRemote = useAuthedAction(api.demo.reset);
 	let busy = $state<DemoBusy>(null);
 
+	// Actions run one after another. The page often shows a result (a new detention pull) before the
+	// action that caused it has finished, so a click in that moment waits its turn instead of
+	// being dropped.
+	let tail: Promise<unknown> = Promise.resolve();
+
 	async function run<T>(kind: Exclude<DemoBusy, null>, fn: () => Promise<T>): Promise<T | null> {
-		if (busy) return null;
+		const previous = tail;
+		let release = () => {};
+		tail = new Promise<void>((resolve) => (release = resolve));
+		await previous;
 		busy = kind;
 		try {
 			return await fn();
@@ -41,6 +49,7 @@ export function useDemoActions() {
 			return null;
 		} finally {
 			busy = null;
+			release();
 		}
 	}
 

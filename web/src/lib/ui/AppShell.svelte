@@ -30,7 +30,12 @@
 		user?: { name: string; email?: string };
 		/** Logo link target. */
 		homeHref?: string;
-		/** Extra items at the right of the top bar (before the theme toggle). */
+		/**
+		 * The one network indicator. Replaces the default `NetworkBadge` (e.g. a badge that also says
+		 * whether the chain is simulated). Rendered in the top bar and in the mobile menu.
+		 */
+		network?: Snippet;
+		/** Extra items at the right end of the top bar (after the theme toggle), e.g. notifications and the user menu. */
 		topbarEnd?: Snippet;
 		children: Snippet;
 	}
@@ -46,6 +51,7 @@
 		live = 'live',
 		user,
 		homeHref = '/',
+		network,
 		topbarEnd,
 		children
 	}: Props = $props();
@@ -198,9 +204,9 @@
 				<div class="hide-mobile">{@render roleSwitch(false)}</div>
 				<span class="divider hide-mobile" aria-hidden="true"></span>
 				<LiveIndicator state={live} />
-				<span class="hide-tablet"><NetworkBadge /></span>
-				{#if topbarEnd}{@render topbarEnd()}{/if}
+				{#if network}{@render network()}{:else}<span class="hide-tablet"><NetworkBadge /></span>{/if}
 				<span class="hide-mobile"><ThemeToggle /></span>
+				{#if topbarEnd}{@render topbarEnd()}{/if}
 				{#if user}
 					<span
 						class="user hide-mobile"
@@ -264,7 +270,7 @@
 					{/if}
 					{@render roleSwitch(true)}
 					<div class="mm-row">
-						<NetworkBadge />
+						{#if network}{@render network()}{:else}<NetworkBadge />{/if}
 						<ThemeToggle />
 					</div>
 				</div>
@@ -440,9 +446,14 @@
 		padding: var(--space-4) var(--space-5) var(--space-5);
 	}
 
+	/* Room for the docked demo controls pill (DemoControls sets the attribute while it is shown). */
+	:global(html[data-demo-controls]) .side-foot {
+		padding-bottom: calc(var(--space-3) + 2.25rem + var(--space-4));
+	}
+
 	.fee-note {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		gap: var(--space-2);
 		font-size: var(--text-xs);
 		color: var(--color-text-tertiary);
@@ -454,6 +465,8 @@
 		border-radius: 50%;
 		background: var(--color-accent);
 		flex-shrink: 0;
+		/* centre on the first line when the note wraps */
+		margin-top: calc((var(--leading-xs) - 6px) / 2);
 	}
 
 	/* ---------- column / topbar ---------- */
@@ -850,7 +863,8 @@
 		}
 
 		.content {
-			padding: var(--space-5) var(--space-4) var(--space-12);
+			/* bottom room so the floating demo button never covers the last row */
+			padding: var(--space-5) var(--space-4) var(--space-20);
 		}
 	}
 

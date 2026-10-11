@@ -112,11 +112,11 @@ export async function assertDepositFreeEligible(
 		openDisputes > 0
 			? `${name} has ${openDisputes} open dispute${openDisputes === 1 ? '' : 's'}.`
 			: `${name} has ${cleanReturns} clean return${cleanReturns === 1 ? '' : 's'} with you; deposit-free needs ${threshold}.`;
-	throw appError(
-		'NOT_ELIGIBLE',
-		`${reason} Use a held deposit for this request.`,
-		{ cleanReturns, openDisputes, required: threshold }
-	);
+	throw appError('NOT_ELIGIBLE', `${reason} Use a held deposit for this request.`, {
+		cleanReturns,
+		openDisputes,
+		required: threshold
+	});
 }
 
 async function uniqueRequestCode(ctx: MutationCtx): Promise<string> {

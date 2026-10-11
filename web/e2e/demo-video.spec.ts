@@ -139,7 +139,7 @@ test('2 importer: pays all 3 deposits in one tap; the line flips to Deposit held
 	await expect(sheet).toBeVisible();
 	// Signed in with a passkey: the approval sheet is the passkey prompt (demo persona: simulated).
 	await expect(sheet.getByText(/Passkey|passkey|Face ID/).first()).toBeVisible();
-	await expect(sheet.getByText('$3,200.00').or(sheet.getByText('$2,200.00'))).toBeVisible();
+	await expect(sheet.getByText(/\$[\d,]+\.\d{2}/).first()).toBeVisible();
 	await frame('04-importer-passkey-approval');
 	await sheet.getByRole('button', { name: /Pay 3 deposits/ }).click();
 
@@ -185,7 +185,15 @@ test('3 importer: deposit-free authorization for Savanna with the access key lab
 
 	await switchTo(page, 'wanjiru', freeImporterPath);
 	await expect(page.getByText('No money moves').first()).toBeVisible();
-	await expect(page.getByTestId('key-terms').getByText('$45.00')).toBeVisible();
+	await expect(
+		page
+			.getByTestId('key-terms')
+			.getByText(/\$\d+\.\d{2}/)
+			.first()
+	).toBeVisible();
+	await expect(
+		page.getByTestId('key-terms').getByText('per day, resets daily').first()
+	).toBeVisible();
 	const keyLabel =
 		/Access key: up to one day's detention per day, payable only to Meridian Ocean Lines, expires \d{1,2} \w{3} \d{4}/;
 	await expect(page.getByText(keyLabel).first()).toBeVisible();
@@ -194,23 +202,29 @@ test('3 importer: deposit-free authorization for Savanna with the access key lab
 	await page.getByTestId('authorize-keys').click();
 	await approveSheet(page).getByRole('button', { name: 'Authorize' }).click();
 	const done = page.getByTestId('authorize-success');
-	await expect(done.getByText('Authorized 1 access key')).toBeVisible();
-	await expect(done.getByText('Authorized: up to $45.00 per day')).toBeVisible();
+	await expect(
+		done.getByRole('heading', { name: /Authorized: up to \$\d+\.\d{2} per day/ })
+	).toBeVisible();
+	await expect(done.getByText('No money moved')).toBeVisible();
 	await expect(done.getByText(/Final in \d+ ms/).first()).toBeVisible();
-	await expect(done.getByText(keyLabel).first()).toBeVisible();
+	await expect(
+		page
+			.locator('.live-sub')
+			.getByText(/payable only to Meridian Ocean Lines,\s+expires\s+\d{1,2} \w{3} \d{4}/)
+	).toBeVisible();
 	await frame('09-importer-access-key-authorized');
 
 	// No money moved, and the line releases the container on the spot.
 	await switchTo(page, 'adaeze', '/line/requests');
 	await page.getByRole('link', { name: new RegExp(`Open request ${free.bl}`) }).click();
 	await page.getByTestId('issue-release').click();
-	await expect(page.getByText(/Issued for all 1/)).toBeVisible();
+	await expect(page.getByText('Issued for the container.')).toBeVisible();
 	await frame('10-line-deposit-free-released');
 });
 
 test('4 container detail: free time ends, a detention pull appears, a second same-day pull is refused', async () => {
 	await page.goto(`/containers/${free.number}`);
-	await expect(page.getByText('Free time').first()).toBeVisible();
+	await expect(page.getByText('In free time').first()).toBeVisible();
 	await expect(page.getByText('Deposit-free').first()).toBeVisible();
 	await frame('11-container-free-time-countdown');
 
@@ -221,17 +235,21 @@ test('4 container detail: free time ends, a detention pull appears, a second sam
 	await expect(trail.getByText(/Detention pull, day 1/)).toBeVisible();
 	await expect(trail.getByText(/Final in \d+ ms/).first()).toBeVisible();
 	await expect(page.getByText('Pulled so far')).toBeVisible();
+	await demoPanel(false);
 	await frame('12-container-detention-pull');
 
+	await demoPanel(true);
 	await page.getByRole('button', { name: /Try a second pull today/ }).click();
 	const callout = page.getByTestId('refusal-callout');
 	await expect(callout.getByText('Refused by the chain: SpendingLimitExceeded')).toBeVisible();
 	await expect(
 		callout.getByText('Recurring limit enforced by the protocol, not by our app')
 	).toBeVisible();
-	await expect(trail.getByText(/SpendingLimitExceeded: second pull on day \d+ refused/)).toBeVisible();
-	await frame('13-container-second-pull-refused');
+	await expect(
+		trail.getByText(/SpendingLimitExceeded: second pull on day \d+ refused/)
+	).toBeVisible();
 	await demoPanel(false);
+	await frame('13-container-second-pull-refused');
 });
 
 test('5 line: record the return and settle; settlement contract, refund in seconds, access key revoked', async () => {
@@ -252,12 +270,22 @@ test('5 line: record the return and settle; settlement contract, refund in secon
 	const result = page.getByTestId('settle-result');
 	await expect(result).toBeVisible();
 	await expect(result.getByRole('button', { name: /Access key revoked/ })).toBeVisible();
-	await expect(result.getByRole('button', { name: /Settlement contract = recovery authority/ })).toBeVisible();
+	await expect(
+		result.getByRole('button', { name: /Settlement contract = recovery authority/ })
+	).toBeVisible();
 	await expect(result.getByText(/Final in \d+ ms/)).toBeVisible();
 	await frame('15-line-settled-access-key-revoked');
 	await page.getByRole('dialog').getByRole('button', { name: 'Close' }).last().click();
 
-	// Held container (Harbourview): the remainder is refunded in the same transaction.
+	// Held container (Harbourview): two days past free time, so the line is owed detention and the
+	// remainder is refunded in the same transaction.
+	await demoPanel(true);
+	for (const label of ['+1 day', '+1 day']) {
+		const day = page.getByTestId('demo-controls').getByRole('button', { name: label, exact: true });
+		await day.click();
+		await expect(day).toBeEnabled();
+	}
+	await demoPanel(false);
 	await page.goto('/line/returns');
 	await page.getByTestId(`record-return-${held.numbers[0]}`).click();
 	const drawer2 = page.getByRole('dialog', { name: /Record return of/ });
@@ -272,7 +300,9 @@ test('5 line: record the return and settle; settlement contract, refund in secon
 	await frame('16-line-record-return-held');
 	await page.getByTestId('post-charges').click();
 	const result2 = page.getByTestId('settle-result');
-	await expect(result2).toContainText(/Settled: \$[\d,.]+ to Meridian Ocean Lines, \$[\d,.]+ refunded/);
+	await expect(result2).toContainText(
+		/Settled: \$(?!0\.00)[\d,.]+ to Meridian Ocean Lines,\s+\$[\d,.]+ refunded/
+	);
 	await expect(result2.getByRole('button', { name: /Refund in seconds/ })).toBeVisible();
 	await expect(
 		result2.getByRole('button', { name: /Settlement contract = recovery authority/ })

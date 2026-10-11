@@ -124,8 +124,9 @@
 
 	.figures {
 		display: inline-flex;
+		flex-wrap: wrap;
 		align-items: baseline;
-		gap: var(--space-1-5);
+		gap: 0 var(--space-1-5);
 	}
 
 	.figures strong {
@@ -141,6 +142,8 @@
 	.of {
 		font-size: var(--text-xs);
 		color: var(--color-text-tertiary);
+		/* "of $1,200.00 deposit" wraps as one phrase, never word by word */
+		white-space: nowrap;
 	}
 
 	.track {

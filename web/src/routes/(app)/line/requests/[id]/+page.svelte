@@ -429,8 +429,9 @@
 				{#if released.length === containers.length}
 					<p class="done">
 						<Check size={14} strokeWidth={2} aria-hidden="true" />
-						Issued for all {containers.length}
-						{containers.length === 1 ? 'container' : 'containers'}.
+						{containers.length === 1
+							? 'Issued for the container.'
+							: `Issued for all ${containers.length} containers.`}
 					</p>
 				{:else}
 					<p class="lead">
@@ -445,7 +446,7 @@
 						<ul class="blocked" aria-label="Blocked containers">
 							{#each waiting as c (c._id)}
 								<li>
-									<span class="mono">{c.number}</span>
+									<ContainerNumber value={c.number} size="sm" />
 									<span>{blockedReason(c)}</span>
 								</li>
 							{/each}

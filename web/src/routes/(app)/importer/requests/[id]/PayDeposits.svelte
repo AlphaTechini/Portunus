@@ -227,7 +227,7 @@
 								<ContainerNumber value={c.number} size="sm" href={containerHref(c.number)} />
 								<StatusPill
 									state={c.state === 'deposit_held' ? 'deposit_held' : 'awaiting_deposit'}
-									long
+									size="sm"
 								/>
 							</li>
 						{/each}

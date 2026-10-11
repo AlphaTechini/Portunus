@@ -110,7 +110,8 @@ export function buildTrail(d: ContainerDetail): TimelineEntry[] {
 			title: e.title,
 			timestamp: e.at,
 			detail: e.detail,
-			actor: e.actor
+			// "Adaeze Okafor · Issued by Adaeze Okafor." reads twice; the detail already names them.
+			actor: e.actor && e.detail?.includes(e.actor) ? undefined : e.actor
 		});
 	}
 	return out;

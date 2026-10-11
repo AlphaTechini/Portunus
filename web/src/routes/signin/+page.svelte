@@ -523,6 +523,7 @@
 
 	.intro p {
 		margin-top: var(--space-1-5);
+		text-wrap: balance;
 		font-size: var(--text-base);
 		line-height: var(--leading-base);
 		color: var(--color-text-secondary);

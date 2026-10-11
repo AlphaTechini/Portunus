@@ -50,25 +50,66 @@
 			</ol>
 		</nav>
 	{/if}
-	<div class="main">
-		<div class="titles">
-			<h1 class="title">
-				{#if titleSnippet}{@render titleSnippet()}<span class="sr-only">{title}</span
-					>{:else}{title}{/if}
-			</h1>
-			{#if subtitle}<p class="subtitle">{subtitle}</p>{/if}
-		</div>
-		{#if actions}<div class="actions">{@render actions()}</div>{/if}
+	<div class="titles">
+		<h1 class="title">
+			{#if titleSnippet}{@render titleSnippet()}<span class="sr-only">{title}</span
+				>{:else}{title}{/if}
+		</h1>
+		{#if subtitle}<p class="subtitle">{subtitle}</p>{/if}
 	</div>
 	{#if meta}<div class="meta">{@render meta()}</div>{/if}
+	{#if actions}<div class="actions">{@render actions()}</div>{/if}
 </header>
 
 <style>
+	/*
+	 * Desktop: breadcrumbs, then titles with the actions on the right (bottom aligned), then meta.
+	 * Phone: titles, meta (status first), then actions full row.
+	 */
 	.ph {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas:
+			'crumbs crumbs'
+			'titles actions'
+			'meta meta';
+		/* no row gap: empty areas (no crumbs, no meta) must not add space; items carry margins */
+		column-gap: var(--space-4);
 		padding-bottom: var(--space-6);
+	}
+
+	.crumbs {
+		grid-area: crumbs;
+		margin-bottom: var(--space-3);
+	}
+
+	.titles {
+		grid-area: titles;
+	}
+
+	.meta {
+		grid-area: meta;
+		margin-top: var(--space-3);
+	}
+
+	.actions {
+		grid-area: actions;
+		align-self: end;
+	}
+
+	@media (max-width: 767px) {
+		.ph {
+			grid-template-columns: minmax(0, 1fr);
+			grid-template-areas:
+				'crumbs'
+				'titles'
+				'meta'
+				'actions';
+		}
+
+		.actions {
+			margin-top: var(--space-4);
+		}
 	}
 
 	.divider {
@@ -104,26 +145,18 @@
 		color: var(--color-text-tertiary);
 	}
 
-	.main {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: flex-end;
-		justify-content: space-between;
-		gap: var(--space-4);
-	}
-
 	.titles {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1-5);
 		min-width: 0;
-		flex: 1 1 22rem;
 	}
 
 	.title {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--space-3);
+		gap: var(--space-1) var(--space-3);
 		font-size: var(--text-2xl);
 		line-height: var(--leading-2xl);
 		font-weight: var(--weight-semibold);

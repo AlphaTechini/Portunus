@@ -279,6 +279,54 @@ describe('deposit-free flow', () => {
 		expect(c.payments.map((p) => p.kind)[0]).toBe('key_authorized');
 	});
 
+	it('a return entered to the minute right after a detention pull counts from that pull', async () => {
+		const t = await seeded();
+		const adaeze = await signIn(t, 'Adaeze Okafor');
+		const wanjiru = await signIn(t, 'Wanjiru Mwangi');
+		const reqs = await t.query(api.releaseRequests.listForImporter, { sessionToken: wanjiru });
+		const open = reqs.find((r) => r.status === 'awaiting_importer')!;
+		await t.action(api.accessKeys.prepare, { sessionToken: wanjiru, requestId: open._id });
+		await t.action(api.accessKeys.authorize, {
+			sessionToken: wanjiru,
+			requestId: open._id,
+			approval: demoApproval
+		});
+		const rel = await t.mutation(api.releaseRequests.issueReleaseOrder, {
+			sessionToken: adaeze,
+			requestId: open._id
+		});
+		const [target, other] = rel.released;
+		for (const id of [target, other])
+			await t
+				.action(api.demo.jumpToFreeTimeEnd, { sessionToken: adaeze, containerId: id })
+				.catch(() => {});
+		const c = await t.query(api.containers.get, { sessionToken: adaeze, containerId: target });
+		expect(c.container.detentionDays).toBe(1);
+		const dayStart = c.container.freeTimeEndsAt!;
+		// Two minutes before the pull: still refused.
+		await expect(
+			t.mutation(api.containers.recordReturn, {
+				sessionToken: adaeze,
+				containerId: target,
+				eirNumber: 'EIR-OLD',
+				depot: 'Apapa',
+				date: dayStart - 120_000
+			})
+		).rejects.toThrow(/earlier than a detention day that was already pulled/);
+		// The minute the pull ran in: accepted, detention stays at the one pulled day.
+		const r = await t.mutation(api.containers.recordReturn, {
+			sessionToken: adaeze,
+			containerId: target,
+			eirNumber: 'EIR-NOW',
+			depot: 'Apapa',
+			date: dayStart - 20_000
+		});
+		expect(r.state).toBe('returned');
+		const after = await t.query(api.containers.get, { sessionToken: adaeze, containerId: target });
+		expect(after.container.detentionDays).toBe(1);
+		expect(after.container.returnedAt).toBe(dayStart);
+	});
+
 	it('importer revokes mid-flight: later days accrue but cannot be pulled', async () => {
 		const t = await seeded();
 		const adaeze = await signIn(t, 'Adaeze Okafor');

@@ -256,6 +256,18 @@
 						</li>
 					{/each}
 				</ul>
+				{#if live.length}
+					<div class="done-tag">
+						<TempoTag
+							feature="access_key"
+							variant="callout"
+							label="Access key: up to one day's detention per day, payable only to {lineName}, expires {formatDate(
+								Math.max(...live.map((c) => c.accessKey!.expiry))
+							)}"
+							detail="The protocol enforces the cap, the payee and the expiry. Nothing moves until a charge is owed."
+						/>
+					</div>
+				{/if}
 				{#if result.failed.length}
 					<Notice tone="warning" title="Some keys were not authorized">
 						{result.failed.map((f) => `${f.number}: ${f.error}`).join(' ')}
@@ -315,6 +327,9 @@
 </div>
 
 <style>
+	.done-tag {
+		margin-top: var(--space-4);
+	}
 	.col {
 		display: flex;
 		flex-direction: column;
@@ -474,8 +489,12 @@
 		display: none;
 	}
 	@media (max-width: 560px) {
+		/* cap and period side by side, expiry across: the terms stay scannable on a phone */
 		.terms {
-			grid-template-columns: minmax(0, 1fr);
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		.terms > :last-child {
+			grid-column: 1 / -1;
 		}
 		.common {
 			grid-template-columns: minmax(0, 1fr);

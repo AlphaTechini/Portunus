@@ -296,8 +296,9 @@
 					<div class="line">
 						<span>Detention</span>
 						<span class="tabular">
-							{formatDays(calc.days)}{#if calc.days > 0}
-								at {formatMoney(units(c.dailyRateUnits))} per day{/if}
+							{formatDays(calc.days)}{calc.days > 0
+								? ` at ${formatMoney(units(c.dailyRateUnits))} per day`
+								: ''}
 						</span>
 					</div>
 					<div class="line">

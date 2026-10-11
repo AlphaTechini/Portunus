@@ -70,8 +70,10 @@
 	.toaster {
 		position: fixed;
 		z-index: var(--z-toast);
+		/* Top right, under the top bar: clear of drawer and sheet footers (where the primary
+		   actions live) and of the demo controls docked at the bottom. */
+		top: calc(var(--topbar-height) + var(--space-3));
 		right: var(--space-4);
-		bottom: var(--space-4);
 		width: min(24rem, calc(100vw - 2rem));
 		pointer-events: none;
 	}
@@ -183,7 +185,15 @@
 	@keyframes enter {
 		from {
 			opacity: 0;
-			transform: translateY(8px);
+			transform: translateY(-8px);
+		}
+	}
+
+	@media (max-width: 767px) {
+		.toaster {
+			top: calc(var(--topbar-height) + var(--space-2));
+			right: var(--space-3);
+			width: calc(100vw - var(--space-6));
 		}
 	}
 </style>

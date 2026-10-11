@@ -495,9 +495,13 @@ export async function recordReturnOp(
 	if (c0.releasedAt !== undefined && input.date < c0.releasedAt) {
 		throw appError('INVALID', 'The return date is before the container was released.');
 	}
-	const returnedAt = Math.min(input.date, now);
+	let returnedAt = Math.min(input.date, now);
 	if (c0.mode === 'depositFree' && c0.freeTimeEndsAt !== undefined && c0.detentionDays > 0) {
 		const lastPullStart = detentionDayDueAt(c0.freeTimeEndsAt, c0.detentionDays);
+		// The return date is entered to the minute, so "now" can land a few seconds before the pull
+		// that has just run. Within that minute, count the return from the pull.
+		if (returnedAt < lastPullStart && lastPullStart - returnedAt < 60_000 && lastPullStart <= now)
+			returnedAt = lastPullStart;
 		if (returnedAt < lastPullStart) {
 			throw appError(
 				'INVALID',

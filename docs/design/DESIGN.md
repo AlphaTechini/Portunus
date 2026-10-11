@@ -115,6 +115,7 @@ Seven tones, each with `-fg` (text and icon), `-bg` (fill), `-border` and `-soli
 - **Elevation:** `--shadow-xs` (buttons, inputs), `--shadow-sm` (cards), `--shadow-md` (hover lift), `--shadow-lg` (toasts, floating cards), `--shadow-overlay` (dialogs, popovers). Always pair with a 1px border.
 - **Motion:** `--ease-out` for entering, `--ease-standard` for state changes, `--ease-in-out` for loops. `--duration-fast` 140ms (hover), `--duration-base` 200ms (toggles, indicators), `--duration-slow` 320ms (dialogs, toasts), `--duration-slower` 520ms (meters). Nothing bounces. `prefers-reduced-motion` collapses all animation (handled in `global.css`).
 - **Z-index:** `--z-sticky`, `--z-nav`, `--z-dropdown`, `--z-overlay`, `--z-toast`, `--z-tooltip`.
+- **Floating layers never cover the primary action.** Toasts stack top right, just under the top bar (full width under the top bar on phones), clear of drawer and sheet footers where the primary action lives. The demo controls dock in the sidebar footer on desktop and shrink to a 44px round button bottom right on tablet and phone; the content area keeps 80px of bottom padding on phones so the last row is never under it.
 - **Layout:** `--sidebar-width` 240, `--sidebar-rail-width` 64, `--topbar-height` 56, `--content-max` 1280 (app), `--content-narrow` 720 (single-column forms), `--page-max` 1200 (landing), `--gutter` (fluid page gutter).
 - **Breakpoints:** desktop at 1024 and up (full sidebar), tablet 768 to 1023 (icon rail with hover labels), mobile under 768 (top bar with a menu button that opens a top menu). Content grids collapse: 4 columns to 2 at 1100, to 1 at 760.
 
@@ -134,7 +135,7 @@ All helpers are in `web/src/lib/ui/format.ts` and re-exported from `#lib/ui`.
 | Date and time | `11 Oct 2026, 14:32` 24-hour, viewer's local time. | `formatDateTime()` |
 | On-chain timestamps | `14:32:07.482` with milliseconds, next to the finality time. | `formatTimestamp()`, `<Timeline>` |
 | Finality | `Final in 482 ms` under one second, `Final in 1.24 s` above. | `formatFinality()` |
-| Countdowns | `4d 06h 12m 09s` segments in headers, `4d 6h` inline in tables. Amber under 24h. After the target, either "Ended" or counting up with a `+`. | `<Countdown target start label />` |
+| Countdowns | `4d 06h 12m 09s` segments in headers, `4d 6h` inline in tables (inline never ticks seconds unless `showSeconds` is set). Amber under 24h. After the target, either "Ended" or counting up with a `+`. | `<Countdown target start label />` |
 | Durations | `3.2 seconds`, `7 days`, `2 days 4 hours`. | `formatDuration()`, `formatDays()` |
 | Relative time | `3 min ago`, only for activity feeds; never instead of a date on money events. | `formatRelative()` |
 | Percent | `23%`, no decimals unless below 1%. | `formatPercent()` |
@@ -214,8 +215,8 @@ Import from the barrel: `import { Button, StatusPill, TempoTag } from '#lib/ui';
 | `Checkbox` | `bind:checked`, `label`, `description`, `indeterminate`. |
 | `Switch` | `bind:checked`, `label`, `description`, `onchange`. role=switch. |
 | `SegmentedControl` | Radiogroup with arrow keys. `options` [{value,label,description,icon}], `bind:value`, `label` (required), `variant` pill / cards. Use `cards` for **Held deposit vs Deposit-free**. |
-| `Card` | `title`, `description`, `actions` snippet, `header`, `footer`, `padding` none/sm/md/lg, `variant` default/sunken/outline, `interactive`. |
-| `Stat` | KPI tile: `label`, `value` (pre-formatted) or `valueSnippet`, `unit`, `delta` {value, direction, sentiment, context}, `hint`, `icon`, `sparkline` number[], `footer` snippet (put the data-source TempoTag here), `loading`, `href`. |
+| `Card` | `title`, `description`, `actions` snippet, `header`, `footer`, `padding` none/sm/md/lg, `variant` default/sunken/outline, `interactive`. Header actions wrap under the titles when space runs out (never squeeze the description). Descriptions are sentences and end with a period. Every section of a page is a Card with a title (no free-standing `h2` section headings); tables inside cards use `padding="none"` and `framed={false}`. Padding drops to 16 on phones. |
+| `Stat` | KPI tile: `label`, `value` (pre-formatted) or `valueSnippet`, `unit`, `delta` {value, direction, sentiment, context}, `hint`, `icon`, `sparkline` number[], `footer` snippet (put the data-source TempoTag here), `loading`, `href`. Tiles in a row share one height and the footer sits on the bottom edge. Keep labels to one line at four-up (about 28 characters); put the longer explanation in `hint`. |
 | `Sparkline` | Single-series trend line; `values`, `label`. |
 | `Table` | Generic: `columns` [{key,label,numeric,align,width,hideBelow}], `rows`, `rowKey`, `cell` snippet (row, column), `caption` (required), `rowHref` + `rowLabel` (stretched row link), `loading`, `empty` snippet or `emptyTitle`/`emptyDescription`/`emptyIcon`, `density`, `stickyHeader`, `highlight` (flash a changed row). |
 | `Badge` | `tone`, `dot`, `pulse`, `icon`, `variant` soft/outline, `mono`, `size`. |
@@ -236,9 +237,10 @@ Import from the barrel: `import { Button, StatusPill, TempoTag } from '#lib/ui';
 | `ContainerNumber` | `value`, `type`, `size`, `copyable`, `href`, `validate`. |
 | `PasskeyButton` | `state` idle/waiting/success/error, `label`, `sublabel`, `glyph` face/fingerprint, `variant` primary/secondary, `fullWidth`, `href`, `onclick`. |
 | `AppShell` | See section 10. |
-| `PageHeader` | `title`, `titleSnippet` (e.g. a ContainerNumber), `subtitle`, `breadcrumbs` [{label,href}], `meta` snippet (status, tags, facts), `actions` snippet, `divider`. |
+| `PageHeader` | `title`, `titleSnippet` (e.g. a ContainerNumber), `subtitle`, `breadcrumbs` [{label,href}], `meta` snippet (status, tags, facts), `actions` snippet, `divider`. Desktop: actions on the right of the titles; phones: titles, then meta (status first), then actions. Breadcrumb labels for containers use `formatContainerNumber` (`MRDU 482662-1`), never the raw number. |
 | `Logo` | `variant`, `size`, `tone`, `label`. |
 | `NetworkBadge`, `LiveIndicator`, `ThemeToggle`, `Spinner` | Shell furniture; also usable on their own. |
+| `SeriesChart` (`#lib/app`) | Dashboard trend: `kind` area (running totals, e.g. cash held) or bars (per-day sums, e.g. refunds). Area shows the top of the scale; sparse bar series (four active days or fewer) label each bar with its amount and keep a faint stub for every empty day, so one refund in thirty days still reads as a timeline, not a stray bar. |
 
 Accessibility contract (already built in, do not undo it): visible focus ring on every interactive element, labels for every control (Field or `label` prop), icon-only buttons need `label`, `aria-live` on copy confirmations and toasts, tables need `caption`, keyboard support for Tabs, SegmentedControl, Modal, Drawer, Tooltip and the org menu, AA contrast in both themes, reduced motion respected.
 
@@ -269,9 +271,10 @@ Accessibility contract (already built in, do not undo it): visible focus ring on
   - Line: Dashboard `/line`, New release request `/line/requests/new`, Containers `/containers`; Settlement: Returns and settlement `/line/returns`, Held transfers `/line/held`, Disputes `/disputes`; Account: Settings `/line/settings`.
   - Importer: Dashboard `/importer`, Release requests `/importer/requests` (pay deposits `/importer/requests/[id]`, authorize deposit-free on the same route when the mode is deposit-free), Containers `/containers`; Settlement: Disputes `/disputes`.
   - Container detail: `/containers/[number]` for both roles. Sign in: `/signin`.
-- **Top bar (56px, sticky, translucent):** org switcher (avatar initials, name, role and port; opens a menu), then on the right: "Demo view" role switch (Line | Importer), live indicator, `Tempo Moderato testnet` network badge, theme toggle, user initials.
-- **Tablet:** sidebar becomes a 64px icon rail; labels appear on hover/focus; network badge hides.
-- **Mobile:** sidebar hidden; top bar shows the logo, live dot and a menu button; the menu drops down with nav, org list, role switch, network badge and theme toggle. It closes on navigation and Escape.
+- **Top bar (56px, sticky, translucent):** org switcher (avatar initials, name, role and port; opens a menu), then on the right: "Demo view" role switch (Line | Importer), live indicator, **one** network indicator, theme toggle, notifications, user menu. The network indicator is passed as AppShell's `network` snippet (the app passes `ChainBadge`): it says `Simulated chain` (dashed edge, amber glyph; tooltip names Tempo Moderato and the `sim:` hashes) or `Tempo Moderato testnet` in live mode, `Sim` / `Testnet` on phones. Never show a second network or chain badge next to it.
+- **Tablet:** sidebar becomes a 64px icon rail; labels appear on hover/focus; the default `NetworkBadge` hides (a `network` snippet stays visible, in short form).
+- **Mobile:** sidebar hidden; top bar shows the logo, live dot, the short network indicator and a menu button; the menu drops down with nav, org list, role switch, network indicator and theme toggle. It closes on navigation and Escape.
+- **Demo controls (sim only):** docked at the bottom of the sidebar on desktop (sidebar width, product clock on the right; the sidebar footer reserves the room), a round icon button on tablet (in the rail) and phone (bottom right).
 - **Content:** max 1280px, padding 32 (desktop), 24 (tablet), 16 (mobile). Every page starts with `PageHeader`.
 
 ---
