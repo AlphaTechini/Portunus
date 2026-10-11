@@ -6,7 +6,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { internalAction, internalMutation, type ActionCtx } from './_generated/server';
-import { logEvent, notify, productNow } from './helpers';
+import { logEvent, notify, productNow, fmtDate } from './helpers';
 import { chainPull } from './chain';
 import {
 	detentionStepOp,
@@ -18,8 +18,6 @@ import {
 import { executeSettlements } from './settlement';
 import { formatUsd, u } from '../lib/shared/domain/money';
 import type { Hex } from '../lib/shared/domain/memo';
-
-const fmtDate = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
 // --- job audit ---------------------------------------------------------------------------
 

@@ -6,7 +6,15 @@
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
-import { appError, clockOffset, logEvent, notify, schedulerTime, setState } from './helpers';
+import {
+	appError,
+	clockOffset,
+	logEvent,
+	notify,
+	schedulerTime,
+	setState,
+	fmtDate
+} from './helpers';
 import { refreshRequestStatus } from './opsRequests';
 import {
 	accrued,
@@ -21,8 +29,6 @@ import { pullMemo, type Hex, encodeMemo } from '../lib/shared/domain/memo';
 import { formatUsd, minBig, u } from '../lib/shared/domain/money';
 import type { ChainErr } from './chain';
 import type { TxResultJson } from '../lib/shared/tempo/adapter';
-
-const fmtDate = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
 // ---------------------------------------------------------------------------
 // Scheduling (details 14.3). One tracked job per container; the daily sweep is the backstop.

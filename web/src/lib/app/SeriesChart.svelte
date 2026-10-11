@@ -51,7 +51,9 @@
 	const nonZero = $derived(points.filter((p) => p.value > 0).length);
 	const labelBars = $derived(kind === 'bars' && nonZero > 0 && nonZero <= 4);
 	const compactUsd = (v: number) =>
-		v >= 1000 ? `$${(v / 1000).toFixed(v % 1000 === 0 || v >= 10_000 ? 0 : 1)}k` : `$${Math.round(v)}`;
+		v >= 1000
+			? `$${(v / 1000).toFixed(v % 1000 === 0 || v >= 10_000 ? 0 : 1)}k`
+			: `$${Math.round(v)}`;
 
 	function pick(e: PointerEvent) {
 		const r = (e.currentTarget as SVGElement).getBoundingClientRect();

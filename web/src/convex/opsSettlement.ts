@@ -7,7 +7,7 @@
  */
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
-import { appError, logEvent, notify, setState } from './helpers';
+import { appError, logEvent, notify, setState, fmtDate } from './helpers';
 import { refreshRequestStatus } from './opsRequests';
 import {
 	accrued,
@@ -29,8 +29,6 @@ import { formatUsd, minBig, u } from '../lib/shared/domain/money';
 import type { TxResultJson } from '../lib/shared/tempo/adapter';
 import type { SimLeg } from '../lib/shared/tempo/sim';
 import type { ChainErr } from './chain';
-
-const fmtDate = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
 export type SettleSource = 'line' | 'window' | 'importer' | 'batch' | 'dispute';
 

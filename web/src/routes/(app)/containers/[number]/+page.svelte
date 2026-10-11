@@ -40,7 +40,6 @@
 		type TableColumn
 	} from '#lib/ui';
 	import {
-		ChainResult,
 		DAY_MS,
 		ModeBadge,
 		Notice,

@@ -61,11 +61,7 @@
 	let menuOpen = $state(false);
 	let orgButton: HTMLButtonElement | undefined = $state();
 	let orgPop: HTMLElement | undefined = $state();
-	let roleValue = $state<Role>('line');
-
-	$effect.pre(() => {
-		roleValue = role;
-	});
+	let roleValue = $derived<Role>(role);
 
 	// close the mobile menu when the route changes
 	$effect(() => {
@@ -204,7 +200,8 @@
 				<div class="hide-mobile">{@render roleSwitch(false)}</div>
 				<span class="divider hide-mobile" aria-hidden="true"></span>
 				<LiveIndicator state={live} />
-				{#if network}{@render network()}{:else}<span class="hide-tablet"><NetworkBadge /></span>{/if}
+				{#if network}{@render network()}{:else}<span class="hide-tablet"><NetworkBadge /></span
+					>{/if}
 				<span class="hide-mobile"><ThemeToggle /></span>
 				{#if topbarEnd}{@render topbarEnd()}{/if}
 				{#if user}

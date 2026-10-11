@@ -327,3 +327,11 @@ export async function importerAddresses(
 }
 
 export type { MutationCtx, QueryCtx };
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "8 Oct 2026" (UTC), the date format used in every timeline and notification text. */
+export function fmtDate(ms: number): string {
+	const d = new Date(ms);
+	return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}

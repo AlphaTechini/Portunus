@@ -1,7 +1,7 @@
 /** Plain mutation-context operations for deposit-free access keys. */
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
-import { appError, logEvent, notify, setState } from './helpers';
+import { appError, logEvent, notify, setState, fmtDate } from './helpers';
 import { refreshRequestStatus } from './opsRequests';
 import {
 	ALPHA_USD,
@@ -13,8 +13,6 @@ import { keyAuthorizedMemo, keyRevokedMemo, encodeMemo } from '../lib/shared/dom
 import { formatUsd, u } from '../lib/shared/domain/money';
 import { depositFreeExpiry } from '../lib/shared/domain/rules';
 import type { TxResultJson } from '../lib/shared/tempo/adapter';
-
-const fmtDate = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
 /**
  * Expiry for a key authorized now. Free time has not started (the line releases after the

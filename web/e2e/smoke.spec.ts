@@ -24,7 +24,7 @@ const BAD_TEXT: [RegExp, string][] = [
 	[/\bInfinity\b/, '"Infinity"'],
 	[/\bnull\b/, 'the word "null"'],
 	[/\$-\d/, 'a negative dollar amount'],
-	[/(?<=\S)[  ]+[,;.](?=\s|$)/, 'whitespace before punctuation'],
+	[/(?<=\S)[ \u00a0]+[,;.](?=\s|$)/, 'whitespace before punctuation'],
 	[/did not load|something went wrong|unexpected error|internal server error/i, 'an error message']
 ];
 

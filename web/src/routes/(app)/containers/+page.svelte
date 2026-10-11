@@ -234,9 +234,8 @@
 							<div class="sub">accrued {formatMoney(units(c.accruedUnits))}</div>
 						{/if}
 					{:else}
-						<span class="strong">{formatMoney(units(c.dailyRateUnits))}</span>{' '}<span class="sub"
-							>per day cap</span
-						>
+						<span class="strong">{formatMoney(units(c.dailyRateUnits))}</span>
+						<span class="sub">per day cap</span>
 						{#if units(c.pulledUnits) > 0n}
 							<div class="sub">pulled {formatMoney(units(c.pulledUnits))}</div>
 						{/if}

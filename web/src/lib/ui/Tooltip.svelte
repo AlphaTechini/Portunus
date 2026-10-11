@@ -83,8 +83,8 @@
 		else if (p === 'bottom' && r.bottom + t.height + gap > vh - 4) p = 'top';
 		else if (p === 'left' && r.left - t.width - gap < 4) p = 'right';
 		else if (p === 'right' && r.right + t.width + gap > vw - 4) p = 'left';
-		let top = 0;
-		let left = 0;
+		let top: number;
+		let left: number;
 		if (p === 'top' || p === 'bottom') {
 			top = p === 'top' ? r.top - t.height - gap : r.bottom + gap;
 			left = r.left + r.width / 2 - t.width / 2;

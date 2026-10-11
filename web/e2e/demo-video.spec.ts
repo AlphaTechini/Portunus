@@ -62,6 +62,8 @@ test.afterAll(async () => {
 	await context.close();
 });
 
+// Playwright insists on a destructured first argument.
+// eslint-disable-next-line no-empty-pattern
 test.afterEach(async ({}, testInfo) => {
 	if (testInfo.status !== testInfo.expectedStatus) {
 		await page.screenshot({ path: testInfo.outputPath('failure.png') }).catch(() => {});

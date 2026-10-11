@@ -89,7 +89,9 @@
 <Modal
 	bind:open
 	title="Dispute charges"
-	description="Container {formatContainerNumber(number)}. You can dispute once, inside the settlement window."
+	description="Container {formatContainerNumber(
+		number
+	)}. You can dispute once, inside the settlement window."
 	dismissible={!busy}
 >
 	<form
