@@ -19,14 +19,18 @@ test('record a return, post charges and see the settled amounts', async ({ page 
 	const settle = page.getByTestId('settle-drawer');
 	await expect(settle.getByTestId('settle-eir')).toHaveText('EIR-MRDN-900001');
 	await expect(settle.getByText('Settlement window ends in')).toBeVisible();
-	await expect(settle.getByRole('button', { name: /Settlement contract = recovery authority/ })).toBeVisible();
+	await expect(
+		settle.getByRole('button', { name: /Settlement contract = recovery authority/ })
+	).toBeVisible();
 	await settle.getByTestId('damage-input').fill('150');
 	await expect(settle.getByTestId('to-line')).toHaveText('$150.00');
 	await expect(settle.getByTestId('refund-amount')).toHaveText('$1,050.00');
 
 	await page.getByTestId('post-charges').click();
 	const result = page.getByTestId('settle-result');
-	await expect(result).toContainText('Settled: $150.00 to Meridian Ocean Lines, $1,050.00 refunded');
+	await expect(result).toContainText(
+		'Settled: $150.00 to Meridian Ocean Lines, $1,050.00 refunded'
+	);
 	await expect(result.getByText(/sim:0x/)).toBeVisible();
 	await expect(result.getByRole('button', { name: /Refund in seconds/ })).toBeVisible();
 	await page.getByRole('dialog').getByRole('button', { name: 'Close' }).last().click();
@@ -56,7 +60,10 @@ test('settle several returned containers in one batch transaction', async ({ pag
 	await drawer.getByRole('textbox', { name: /EIR/ }).fill('EIR-MRDN-900002');
 	await drawer.getByLabel('Depot').fill('Tin Can Empty Depot');
 	await drawer.getByRole('button', { name: 'Record return' }).click();
-	await page.getByRole('dialog', { name: /^Settle/ }).getByRole('button', { name: 'Cancel' }).click();
+	await page
+		.getByRole('dialog', { name: /^Settle/ })
+		.getByRole('button', { name: 'Cancel' })
+		.click();
 
 	await page.getByText('Select all', { exact: true }).click();
 	const batch = page.getByTestId('settle-selected');
@@ -94,7 +101,9 @@ test('a return receipt submitted by the importer can be contested', async ({ pag
 	await expect(page.getByRole('row', { name: /MRDU 4 8 2 6 5 3/ })).toContainText('In detention');
 });
 
-test('a deposit-free container settles without a refund and the key is revoked', async ({ page }) => {
+test('a deposit-free container settles without a refund and the key is revoked', async ({
+	page
+}) => {
 	await signInAs(page, 'adaeze');
 	await page.goto('/line/returns');
 	// MRDU 482662-1: deposit-free, in detention.

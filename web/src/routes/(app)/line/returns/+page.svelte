@@ -340,7 +340,7 @@
 					{:else if col.key === 'accrued'}
 						<Money amount={units(c.mode === 'held' ? c.accruedUnits : c.pulledUnits)} />
 						<span class="of">of {formatMoney(units(c.depositUnits))}</span>
-					{:else if col.key === 'action'}
+					{:else if col.key === 'action' && !narrow.value}
 						{@render recordButton(c)}
 					{/if}
 				{/snippet}
@@ -527,7 +527,7 @@
 						{:else if c.state === 'disputed'}
 							<Badge tone="danger" size="sm" dot>Disputed</Badge>
 						{/if}
-					{:else if col.key === 'action'}
+					{:else if col.key === 'action' && !narrow.value}
 						{@render windowActions(c)}
 					{/if}
 				{/snippet}

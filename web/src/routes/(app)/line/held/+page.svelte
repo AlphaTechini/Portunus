@@ -219,7 +219,7 @@
 							>{/if}
 					{:else if c.key === 'reason'}
 						{@render reasonBadge(r)}
-					{:else if c.key === 'action'}
+					{:else if c.key === 'action' && !narrow.value}
 						{@render returnButton(r)}
 					{/if}
 				{/snippet}

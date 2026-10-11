@@ -1,18 +1,26 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './helpers';
 
-test('the deposits account shows the receive policy and the recovery authority', async ({ page }) => {
+test('the deposits account shows the receive policy and the recovery authority', async ({
+	page
+}) => {
 	await signInAs(page, 'adaeze');
 	await page.goto('/line/settings');
 	await expect(page.getByText('Active: deposits held by the guard')).toBeVisible();
 	await expect(
 		page.getByText('Rejects incoming balance credit. Deposits are held by the protocol guard')
 	).toBeVisible();
-	await expect(page.getByRole('button', { name: /Receive policy: funds in the protocol guard/ })).toBeVisible();
-	await expect(page.getByRole('button', { name: /Settlement contract = recovery authority/ })).toBeVisible();
+	await expect(
+		page.getByRole('button', { name: /Receive policy: funds in the protocol guard/ })
+	).toBeVisible();
+	await expect(
+		page.getByRole('button', { name: /Settlement contract = recovery authority/ })
+	).toBeVisible();
 });
 
-test('the settlement window can be set to the Philippines draft rule and persists', async ({ page }) => {
+test('the settlement window can be set to the Philippines draft rule and persists', async ({
+	page
+}) => {
 	await signInAs(page, 'adaeze');
 	await page.goto('/line/settings');
 	await expect(page.getByTestId('save-rules')).toBeDisabled();
@@ -45,12 +53,16 @@ test('rate card rows are edited inline and saved', async ({ page }) => {
 	await page.getByTestId('save-rates').click();
 	await expect(page.getByText('Rate card saved')).toBeVisible();
 	await page.reload();
-	await expect(page.getByTestId('rate-row-20GP').getByLabel('Daily detention for 20GP')).toHaveValue('50.00');
+	await expect(
+		page.getByTestId('rate-row-20GP').getByLabel('Daily detention for 20GP')
+	).toHaveValue('50.00');
 });
 
 test('the Kestrel line sees its own settings', async ({ page }) => {
 	await signInAs(page, 'joseph');
 	await page.goto('/line/settings');
 	await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
-	await expect(page.getByText(/Active: deposits held by the guard|Set up the deposits account/)).toBeVisible();
+	await expect(
+		page.getByText(/Active: deposits held by the guard|Set up the deposits account/)
+	).toBeVisible();
 });

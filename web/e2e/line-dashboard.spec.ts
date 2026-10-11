@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './helpers';
 
-test('the line dashboard shows the key figures, refunds due and quick actions', async ({ page }) => {
+test('the line dashboard shows the key figures, refunds due and quick actions', async ({
+	page
+}) => {
 	await signInAs(page, 'adaeze');
 	await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
 	const kpis = page.getByRole('region', { name: 'Key figures' });
@@ -32,5 +34,7 @@ test('an overdue refund is highlighted after the clock moves past the window', a
 	await signInAs(page, 'adaeze');
 	await page.getByTestId('demo-toggle').click();
 	await page.getByRole('button', { name: '+1 day' }).click();
-	await expect(page.getByRole('row', { name: /MRDU 4 8 2 6 9 6/ })).toContainText(/Due today|On time/);
+	await expect(page.getByRole('row', { name: /MRDU 4 8 2 6 9 6/ })).toContainText(
+		/Due today|On time/
+	);
 });

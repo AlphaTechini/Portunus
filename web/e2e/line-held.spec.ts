@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './helpers';
 
-test('held transfers show why they are held and can be returned to the sender', async ({ page }) => {
+test('held transfers show why they are held and can be returned to the sender', async ({
+	page
+}) => {
 	await signInAs(page, 'adaeze');
 	await page.goto('/line/held');
 	await expect(page.getByRole('button', { name: /Held, not lost/ })).toBeVisible();
@@ -25,7 +27,9 @@ test('a stranger transfer from the demo panel lands in the held list', async ({ 
 	await page.getByTestId('demo-toggle').click();
 	await page.getByRole('button', { name: /Simulate a stranger transfer \(BetaUSD\)/ }).click();
 	await expect(page.getByRole('tab', { name: /Held/ })).toContainText('3');
-	await page.getByRole('button', { name: /Simulate a stranger transfer \(unknown sender\)/ }).click();
+	await page
+		.getByRole('button', { name: /Simulate a stranger transfer \(unknown sender\)/ })
+		.click();
 	await expect(page.getByRole('tab', { name: /Held/ })).toContainText('4');
 });
 

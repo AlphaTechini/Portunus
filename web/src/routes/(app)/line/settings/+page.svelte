@@ -233,10 +233,10 @@
 	]);
 
 	const rateCols: TableColumn[] = [
-		{ key: 'type', label: 'Container type' },
-		{ key: 'free', label: 'Free days', width: '10rem' },
-		{ key: 'daily', label: 'Daily detention', width: '12rem' },
-		{ key: 'deposit', label: 'Deposit', width: '12rem' }
+		{ key: 'type', label: 'Container type', width: '28%' },
+		{ key: 'free', label: 'Free days' },
+		{ key: 'daily', label: 'Daily detention' },
+		{ key: 'deposit', label: 'Deposit' }
 	];
 </script>
 
@@ -707,6 +707,7 @@
 	.rates {
 		width: 100%;
 		min-width: 34rem;
+		table-layout: fixed;
 		border-collapse: separate;
 		border-spacing: 0;
 		font-size: var(--text-sm);
