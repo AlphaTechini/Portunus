@@ -1,0 +1,265 @@
+/*
+ * Portunus global base: reset, typography, focus, selection, scrollbars, motion.
+ * Imported once from src/routes/+layout.svelte after tokens.css.
+ */
+
+@import '@fontsource-variable/inter/opsz.css';
+@import '@fontsource-variable/newsreader/opsz.css';
+@import '@fontsource-variable/geist-mono/index.css';
+
+/* ---------- Reset ---------- */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+* {
+	margin: 0;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+	-moz-tab-size: 4;
+	tab-size: 4;
+	scroll-behavior: smooth;
+	scroll-padding-top: calc(var(--topbar-height) + var(--space-4));
+	background: var(--color-bg);
+}
+
+body {
+	min-height: 100vh;
+	min-height: 100dvh;
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: var(--text-sm);
+	line-height: var(--leading-sm);
+	font-weight: var(--weight-regular);
+	font-feature-settings: var(--font-features-sans);
+	font-optical-sizing: auto;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+	display: block;
+	max-width: 100%;
+}
+
+svg {
+	flex-shrink: 0;
+}
+
+input,
+button,
+textarea,
+select {
+	font: inherit;
+	color: inherit;
+	letter-spacing: inherit;
+}
+
+button {
+	cursor: pointer;
+	background: none;
+	border: 0;
+	padding: 0;
+}
+
+button:disabled {
+	cursor: not-allowed;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	overflow-wrap: break-word;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-weight: var(--weight-semibold);
+	letter-spacing: var(--tracking-snug);
+	text-wrap: balance;
+	color: var(--color-text);
+}
+
+p {
+	text-wrap: pretty;
+}
+
+ul,
+ol {
+	padding: 0;
+	list-style: none;
+}
+
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+a {
+	color: var(--color-accent-text);
+	text-decoration: none;
+	text-underline-offset: 3px;
+	text-decoration-thickness: 1px;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+hr {
+	border: 0;
+	border-top: 1px solid var(--color-border);
+}
+
+code,
+kbd,
+samp,
+pre {
+	font-family: var(--font-mono);
+	font-size: 0.92em;
+}
+
+kbd {
+	display: inline-flex;
+	align-items: center;
+	min-width: 1.4em;
+	height: 1.4em;
+	padding: 0 0.35em;
+	border: 1px solid var(--color-border);
+	border-bottom-width: 2px;
+	border-radius: var(--radius-xs);
+	background: var(--color-surface);
+	color: var(--color-text-secondary);
+	font-size: var(--text-2xs);
+}
+
+/* ---------- Focus ---------- */
+:focus {
+	outline: none;
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-focus);
+	outline-offset: 2px;
+	border-radius: var(--radius-xs);
+}
+
+/* ---------- Selection ---------- */
+::selection {
+	background: var(--color-selection);
+	color: inherit;
+}
+
+/* ---------- Scrollbars ---------- */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--color-border-strong);
+	border: 3px solid transparent;
+	border-radius: var(--radius-full);
+	background-clip: padding-box;
+}
+
+/* ---------- Utilities (keep this list short) ---------- */
+
+/* Visually hidden but available to screen readers. */
+.sr-only {
+	position: absolute !important;
+	width: 1px !important;
+	height: 1px !important;
+	padding: 0 !important;
+	margin: -1px !important;
+	overflow: hidden !important;
+	clip: rect(0, 0, 0, 0) !important;
+	white-space: nowrap !important;
+	border: 0 !important;
+}
+
+/* Any number that may change or be compared: money, counts, durations. */
+.tabular,
+.num {
+	font-variant-numeric: tabular-nums;
+	font-feature-settings: var(--font-features-numeric);
+}
+
+.mono {
+	font-family: var(--font-mono);
+	font-feature-settings: normal;
+	letter-spacing: 0;
+}
+
+.overline {
+	font-size: var(--text-2xs);
+	line-height: var(--leading-2xs);
+	font-weight: var(--weight-semibold);
+	letter-spacing: var(--tracking-caps);
+	text-transform: uppercase;
+	color: var(--color-text-tertiary);
+}
+
+.muted {
+	color: var(--color-text-secondary);
+}
+
+.skip-link {
+	position: absolute;
+	left: var(--space-4);
+	top: -100px;
+	z-index: var(--z-toast);
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-md);
+	background: var(--color-primary);
+	color: var(--color-primary-fg);
+	font-weight: var(--weight-medium);
+}
+
+.skip-link:focus {
+	top: var(--space-3);
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
