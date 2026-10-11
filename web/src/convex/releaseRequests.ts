@@ -24,7 +24,12 @@ export const create = mutation({
 		const { user, org } = await requireLine(ctx, a.sessionToken);
 		const { sessionToken: _t, ...rest } = a;
 		void _t;
-		const r = await createReleaseRequest(ctx, { ...rest, line: org, user, now: await productNow(ctx) });
+		const r = await createReleaseRequest(ctx, {
+			...rest,
+			line: org,
+			user,
+			now: await productNow(ctx)
+		});
 		return { requestId: r.requestId, requestCode: r.requestCode, containerIds: r.containerIds };
 	}
 });
@@ -111,7 +116,8 @@ export const get = query({
 			.collect();
 		const cache = new Map<string, unknown>();
 		const containers: ContainerView[] = [];
-		for (const c of rows.sort((x, y) => x.seq - y.seq)) containers.push(await containerView(ctx, c, cache));
+		for (const c of rows.sort((x, y) => x.seq - y.seq))
+			containers.push(await containerView(ctx, c, cache));
 		let deposit = 0n;
 		let received = 0n;
 		let covered = 0;

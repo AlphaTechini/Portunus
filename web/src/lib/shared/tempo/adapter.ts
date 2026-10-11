@@ -196,7 +196,11 @@ export function heldFromJson(j: HeldReceiptJson): HeldReceipt {
 }
 
 export function isSpendingLimitRefusal(x: unknown): x is SpendingLimitRefusalJson {
-	return typeof x === 'object' && x !== null && (x as { error?: unknown }).error === 'SpendingLimitExceeded';
+	return (
+		typeof x === 'object' &&
+		x !== null &&
+		(x as { error?: unknown }).error === 'SpendingLimitExceeded'
+	);
 }
 
 /** Normalise a chain timestamp that may be unix seconds or milliseconds to milliseconds. */

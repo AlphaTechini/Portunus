@@ -76,7 +76,8 @@ export async function ingestReceipts(
 				const importer = await ctx.db.get(container.importerOrgId);
 				const senders = importer ? await importerAddresses(ctx, importer) : [];
 				if (!senders.includes(originator)) reason = 'unknown_sender';
-				else if (container.mode !== 'held' || !ACCEPTING.includes(container.state)) reason = 'excess';
+				else if (container.mode !== 'held' || !ACCEPTING.includes(container.state))
+					reason = 'excess';
 			}
 		} else {
 			lineOrgId = await lineForAddress(ctx, recipient);
@@ -108,16 +109,14 @@ export async function ingestReceipts(
 				approvedWith: opts.approvedWith
 			});
 			const received = u(container.receivedUnits ?? '0') + u(r.amount);
-			let updated = container;
 			const patch: Partial<Doc<'containers'>> = {
 				receivedUnits: received.toString(),
 				heldReceiptId: container.heldReceiptId ?? r.id
 			};
 			await ctx.db.patch(container._id, patch);
-			updated = { ...container, ...patch };
 			const required = u(container.depositUnits);
 			if (container.state === 'awaiting_deposit' && received >= required) {
-				updated = await setState(ctx, updated, 'deposit_held', at);
+				await setState(ctx, { ...container, ...patch }, 'deposit_held', at);
 				await logEvent(
 					ctx,
 					container._id,
@@ -160,7 +159,14 @@ export async function ingestReceipts(
 					at
 				});
 			} else {
-				await logEvent(ctx, container._id, 'deposit_added', 'Additional deposit held', at, formatUsd(u(r.amount)));
+				await logEvent(
+					ctx,
+					container._id,
+					'deposit_added',
+					'Additional deposit held',
+					at,
+					formatUsd(u(r.amount))
+				);
 			}
 			out.deposits.push({ containerId: container._id, paymentId, amountUnits: r.amount });
 			if (!out.touchedContainers.includes(container._id)) out.touchedContainers.push(container._id);
@@ -223,7 +229,10 @@ export async function ingestReceipts(
 	return out;
 }
 
-async function lineForAddress(ctx: MutationCtx, address: string): Promise<Id<'organizations'> | undefined> {
+async function lineForAddress(
+	ctx: MutationCtx,
+	address: string
+): Promise<Id<'organizations'> | undefined> {
 	const lines = await ctx.db
 		.query('organizations')
 		.withIndex('by_kind', (q) => q.eq('kind', 'line'))
@@ -232,7 +241,9 @@ async function lineForAddress(ctx: MutationCtx, address: string): Promise<Id<'or
 	if (direct) return direct._id;
 	if (isVirtualAddress(address)) {
 		const parsed = parseVirtualAddress(address);
-		const byMaster = lines.find((l) => l.masterId && parsed && lc(l.masterId) === lc(parsed.masterId));
+		const byMaster = lines.find(
+			(l) => l.masterId && parsed && lc(l.masterId) === lc(parsed.masterId)
+		);
 		if (byMaster) return byMaster._id;
 	}
 	return undefined;

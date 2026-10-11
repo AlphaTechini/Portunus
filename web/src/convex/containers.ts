@@ -1,7 +1,14 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
-import { action, internalMutation, internalQuery, mutation, query, type QueryCtx } from './_generated/server';
+import {
+	action,
+	internalMutation,
+	internalQuery,
+	mutation,
+	query,
+	type QueryCtx
+} from './_generated/server';
 import {
 	appError,
 	loadContainerFor,
@@ -34,10 +41,18 @@ function paymentView(p: Doc<'payments'>) {
 async function settlementPreview(ctx: QueryCtx, c: Doc<'containers'>, now: number) {
 	if (c.freeTimeEndsAt === undefined) return null;
 	const days = detentionDaysAt(
-		{ freeTimeEndsAt: c.freeTimeEndsAt, maxDetentionDays: c.maxDetentionDays, returnedAt: c.returnedAt },
+		{
+			freeTimeEndsAt: c.freeTimeEndsAt,
+			maxDetentionDays: c.maxDetentionDays,
+			returnedAt: c.returnedAt
+		},
 		now
 	);
-	const accruedNow = accrued({ days, dailyRateUnits: c.dailyRateUnits, depositUnits: c.depositUnits });
+	const accruedNow = accrued({
+		days,
+		dailyRateUnits: c.dailyRateUnits,
+		depositUnits: c.depositUnits
+	});
 	const damage = u(c.damageUnits ?? '0');
 	const held = u(c.receivedUnits ?? '0');
 	const a = settlementAmounts({
@@ -54,7 +69,10 @@ async function settlementPreview(ctx: QueryCtx, c: Doc<'containers'>, now: numbe
 		maxChargeUnits: a.chargeUnits.toString(),
 		refundUnits: c.mode === 'held' ? a.refundUnits.toString() : '0',
 		pulledUnits: c.pulledUnits,
-		uncollectedUnits: c.mode === 'depositFree' ? (accruedNow > u(c.pulledUnits) ? accruedNow - u(c.pulledUnits) : 0n).toString() : '0'
+		uncollectedUnits:
+			c.mode === 'depositFree'
+				? (accruedNow > u(c.pulledUnits) ? accruedNow - u(c.pulledUnits) : 0n).toString()
+				: '0'
 	};
 }
 
@@ -84,9 +102,12 @@ export const get = query({
 			line: publicOrg(line),
 			importer: publicOrg(importer),
 			terms: termsFor(line, request),
-			payments: payments.sort((x, y) => x.timestamp - y.timestamp || x._creationTime - y._creationTime).map(paymentView),
+			payments: payments
+				.sort((x, y) => x.timestamp - y.timestamp || x._creationTime - y._creationTime)
+				.map(paymentView),
 			events: events.sort((x, y) => x.at - y.at),
-			accessKey: view.accessKey ?? (c.accessKeyId ? publicKey((await ctx.db.get(c.accessKeyId))!) : null),
+			accessKey:
+				view.accessKey ?? (c.accessKeyId ? publicKey((await ctx.db.get(c.accessKeyId))!) : null),
 			dispute,
 			preview: await settlementPreview(ctx, c, now),
 			simNow: now
@@ -109,7 +130,11 @@ type Filter = {
 	search?: string;
 };
 
-async function listFor(ctx: QueryCtx, rows: Doc<'containers'>[], filter: Filter | undefined): Promise<ContainerView[]> {
+async function listFor(
+	ctx: QueryCtx,
+	rows: Doc<'containers'>[],
+	filter: Filter | undefined
+): Promise<ContainerView[]> {
 	let list = rows;
 	if (filter?.states?.length) list = list.filter((c) => filter.states!.includes(c.state));
 	if (filter?.mode) list = list.filter((c) => c.mode === filter.mode);
@@ -177,9 +202,17 @@ export const recordReturn = mutation({
 		const s = await requireLine(ctx, a.sessionToken);
 		await loadContainerFor(ctx, s, a.containerId);
 		const now = await productNow(ctx);
-		const c = await recordReturnOp(ctx, a.containerId, { eirNumber: a.eirNumber, date: a.date ?? now, depot: a.depot }, 'line', now, s.user.name);
+		const c = await recordReturnOp(
+			ctx,
+			a.containerId,
+			{ eirNumber: a.eirNumber, date: a.date ?? now, depot: a.depot },
+			'line',
+			now,
+			s.user.name
+		);
 		// Deposit-free: catch the daily pulls up to the return date.
-		if (c.mode === 'depositFree') await ctx.scheduler.runAfter(0, internal.lifecycle.dailyDetention, { containerId: c._id });
+		if (c.mode === 'depositFree')
+			await ctx.scheduler.runAfter(0, internal.lifecycle.dailyDetention, { containerId: c._id });
 		return returnSummary(c);
 	}
 });
@@ -194,7 +227,8 @@ export const submitReturnReceipt = mutation({
 		const input = { eirNumber: a.eirNumber, date: a.date ?? now, depot: a.depot };
 		await checkSilentLine(ctx, existing, { ...input, date: Math.min(input.date, now) }, now);
 		const c = await recordReturnOp(ctx, a.containerId, input, 'importer', now, s.user.name);
-		if (c.mode === 'depositFree') await ctx.scheduler.runAfter(0, internal.lifecycle.dailyDetention, { containerId: c._id });
+		if (c.mode === 'depositFree')
+			await ctx.scheduler.runAfter(0, internal.lifecycle.dailyDetention, { containerId: c._id });
 		return returnSummary(c);
 	}
 });
@@ -239,19 +273,40 @@ export const authImporter = internalQuery({
 });
 
 export const postOnly = internalMutation({
-	args: { containerId: v.id('containers'), damageUnits: v.string(), note: v.optional(v.string()), actor: v.string() },
+	args: {
+		containerId: v.id('containers'),
+		damageUnits: v.string(),
+		note: v.optional(v.string()),
+		actor: v.string()
+	},
 	handler: async (ctx, a): Promise<SettleOutcome> => {
 		const c = await ctx.db.get(a.containerId);
 		if (!c) throw appError('NOT_FOUND', 'Container not found.');
-		if (c.state !== 'returned') throw appError('INVALID_STATE', 'Record the return of the empty before posting charges.');
+		if (c.state !== 'returned')
+			throw appError('INVALID_STATE', 'Record the return of the empty before posting charges.');
 		const now = await productNow(ctx);
 		if (c.settlementWindowEndsAt !== undefined && now >= c.settlementWindowEndsAt) {
-			throw appError('WINDOW_CLOSED', 'The window to post charges has closed; settlement proceeds with accrued detention.');
+			throw appError(
+				'WINDOW_CLOSED',
+				'The window to post charges has closed; settlement proceeds with accrued detention.'
+			);
 		}
 		const damage = u(a.damageUnits);
 		if (damage < 0n) throw appError('INVALID', 'Damage cannot be negative.');
-		await ctx.db.patch(c._id, { damageUnits: damage.toString(), chargeNote: a.note, chargesPostedAt: now });
-		await logEvent(ctx, c._id, 'charges_posted', 'Final charges posted', now, `Damage ${formatUsd(damage)}${a.note ? `: ${a.note}` : ''}. The importer can accept or dispute before the window ends.`, a.actor);
+		await ctx.db.patch(c._id, {
+			damageUnits: damage.toString(),
+			chargeNote: a.note,
+			chargesPostedAt: now
+		});
+		await logEvent(
+			ctx,
+			c._id,
+			'charges_posted',
+			'Final charges posted',
+			now,
+			`Damage ${formatUsd(damage)}${a.note ? `: ${a.note}` : ''}. The importer can accept or dispute before the window ends.`,
+			a.actor
+		);
 		await notify(ctx, {
 			orgId: c.importerOrgId,
 			kind: 'charges_posted',
@@ -279,10 +334,18 @@ export const postCharges = action({
 		settleNow: v.optional(v.boolean())
 	},
 	handler: async (ctx, a): Promise<SettleOutcome> => {
-		const actor = await ctx.runQuery(internal.containers.authLine, { sessionToken: a.sessionToken, containerIds: [a.containerId] });
+		const actor = await ctx.runQuery(internal.containers.authLine, {
+			sessionToken: a.sessionToken,
+			containerIds: [a.containerId]
+		});
 		const damageUnits = a.damageUnits ?? '0';
 		if (a.settleNow === false) {
-			return ctx.runMutation(internal.containers.postOnly, { containerId: a.containerId, damageUnits, note: a.note, actor });
+			return ctx.runMutation(internal.containers.postOnly, {
+				containerId: a.containerId,
+				damageUnits,
+				note: a.note,
+				actor
+			});
 		}
 		const [o] = await executeSettlements(ctx, {
 			containerIds: [a.containerId],
@@ -298,10 +361,22 @@ export const postCharges = action({
 /** Line: batch settlement of returned containers (one transaction for all held ones). Accrued detention, no damage. */
 export const settleMany = action({
 	args: { sessionToken: v.string(), containerIds: v.array(v.id('containers')) },
-	handler: async (ctx, a): Promise<{ outcomes: SettleOutcome[]; settled: number; skipped: number; txHash: string | null }> => {
+	handler: async (
+		ctx,
+		a
+	): Promise<{
+		outcomes: SettleOutcome[];
+		settled: number;
+		skipped: number;
+		txHash: string | null;
+	}> => {
 		if (a.containerIds.length === 0) throw appError('INVALID', 'Select at least one container.');
 		const actor = await ctx.runQuery(internal.containers.authLine, a);
-		const outcomes = await executeSettlements(ctx, { containerIds: a.containerIds, source: 'batch', actor });
+		const outcomes = await executeSettlements(ctx, {
+			containerIds: a.containerIds,
+			source: 'batch',
+			actor
+		});
 		const done = outcomes.filter((o) => o.status === 'settled' || o.status === 'disputed');
 		return {
 			outcomes,
@@ -317,7 +392,11 @@ export const triggerSettlement = action({
 	args: { sessionToken: v.string(), containerId: v.id('containers') },
 	handler: async (ctx, a): Promise<SettleOutcome> => {
 		const { actor } = await ctx.runQuery(internal.containers.authAny, a);
-		const [o] = await executeSettlements(ctx, { containerIds: [a.containerId], source: 'window', actor });
+		const [o] = await executeSettlements(ctx, {
+			containerIds: [a.containerId],
+			source: 'window',
+			actor
+		});
 		return throwIfNotDone(o);
 	}
 });
@@ -327,7 +406,11 @@ export const acceptCharges = action({
 	args: { sessionToken: v.string(), containerId: v.id('containers') },
 	handler: async (ctx, a): Promise<SettleOutcome> => {
 		const { actor } = await ctx.runQuery(internal.containers.authImporter, a);
-		const [o] = await executeSettlements(ctx, { containerIds: [a.containerId], source: 'importer', actor });
+		const [o] = await executeSettlements(ctx, {
+			containerIds: [a.containerId],
+			source: 'importer',
+			actor
+		});
 		return throwIfNotDone(o);
 	}
 });

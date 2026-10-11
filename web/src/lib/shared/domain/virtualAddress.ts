@@ -14,18 +14,24 @@ export const DEFAULT_ENV_PREFIX = 0x5a17;
 
 /** Sim master ids for additional lines: 0x5133d000, 0x5133d001, ... */
 export function simMasterIdForIndex(index: number): Hex {
-	if (!Number.isInteger(index) || index < 0 || index > 255) throw new Error(`Bad sim line index: ${index}`);
+	if (!Number.isInteger(index) || index < 0 || index > 255)
+		throw new Error(`Bad sim line index: ${index}`);
 	return `0x5133d0${index.toString(16).padStart(2, '0')}`;
 }
 
 export function userTagFor(envPrefix: number, seq: number): Hex {
-	if (!Number.isInteger(envPrefix) || envPrefix < 0 || envPrefix > 0xffff) throw new Error('envPrefix must be 16 bits');
+	if (!Number.isInteger(envPrefix) || envPrefix < 0 || envPrefix > 0xffff)
+		throw new Error('envPrefix must be 16 bits');
 	if (!Number.isInteger(seq) || seq < 0 || seq > 0xffffffff) throw new Error('seq must be 32 bits');
 	const tag = (BigInt(envPrefix) << 32n) | BigInt(seq);
 	return `0x${tag.toString(16).padStart(12, '0')}`;
 }
 
-export function depositAddressFor(args: { masterId: string; envPrefix?: number; seq: number }): Hex {
+export function depositAddressFor(args: {
+	masterId: string;
+	envPrefix?: number;
+	seq: number;
+}): Hex {
 	const address = VirtualAddress.from({
 		masterId: args.masterId as Hex,
 		userTag: userTagFor(args.envPrefix ?? DEFAULT_ENV_PREFIX, args.seq)

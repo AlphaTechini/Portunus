@@ -33,14 +33,17 @@ export type Chain<T> = ({ ok: true } & T) | { ok: false; error: ChainErr };
 
 // --- live node actions (TEMPO-LIVE), referenced by name -----------------------------------
 
-type PullLive = TxResultJson | { error: 'SpendingLimitExceeded'; remainingUnits: string; periodEnd: number };
+type PullLive =
+	TxResultJson | { error: 'SpendingLimitExceeded'; remainingUnits: string; periodEnd: number };
 
 const liveConfirmDeposits = makeFunctionReference<'action', { txHash: string }, HeldReceiptJson[]>(
 	'tempoNode:confirmDeposits'
 );
-const liveCreateAccessKey = makeFunctionReference<'action', Record<string, never>, { keyAddress: string; encPrivKey: string }>(
-	'tempoNode:createAccessKey'
-);
+const liveCreateAccessKey = makeFunctionReference<
+	'action',
+	Record<string, never>,
+	{ keyAddress: string; encPrivKey: string }
+>('tempoNode:createAccessKey');
 const livePullDetention = makeFunctionReference<
 	'action',
 	{ account: string; encPrivKey: string; to: string; amountUnits: string; memo: string },
@@ -82,7 +85,14 @@ const liveFundFromFaucet = makeFunctionReference<'action', { address: string }, 
 );
 
 function rpcFail(e: unknown): { ok: false; error: ChainErr } {
-	return { ok: false, error: { name: 'RpcError', message: e instanceof Error ? e.message : String(e), retryable: true } };
+	return {
+		ok: false,
+		error: {
+			name: 'RpcError',
+			message: e instanceof Error ? e.message : String(e),
+			retryable: true
+		}
+	};
 }
 
 async function waitFinality(ms: number): Promise<void> {
@@ -97,7 +107,13 @@ export async function chainPayBatch(
 	a: { payer: string; items: { to: string; amountUnits: string; memo: Hex }[]; at?: number }
 ): Promise<Chain<{ tx: TxResultJson; held: HeldReceiptJson[] }>> {
 	if (chainMode() === 'live') {
-		return { ok: false, error: { name: 'NotSupported', message: 'In live mode the browser submits the batch with a passkey.' } };
+		return {
+			ok: false,
+			error: {
+				name: 'NotSupported',
+				message: 'In live mode the browser submits the batch with a passkey.'
+			}
+		};
 	}
 	const r = await ctx.runMutation(internal.sim.transferBatch, {
 		from: a.payer,
@@ -111,7 +127,10 @@ export async function chainPayBatch(
 }
 
 /** Live only: re-read the browser-submitted transaction and return the guard receipts. */
-export async function chainConfirmDeposits(ctx: ActionCtx, txHash: string): Promise<Chain<{ held: HeldReceiptJson[] }>> {
+export async function chainConfirmDeposits(
+	ctx: ActionCtx,
+	txHash: string
+): Promise<Chain<{ held: HeldReceiptJson[] }>> {
 	try {
 		const held = await ctx.runAction(liveConfirmDeposits, { txHash });
 		return { ok: true, held };
@@ -122,7 +141,9 @@ export async function chainConfirmDeposits(ctx: ActionCtx, txHash: string): Prom
 
 // --- access keys --------------------------------------------------------------------------
 
-export async function chainCreateAccessKey(ctx: ActionCtx): Promise<Chain<{ keyAddress: string; encPrivKey: string }>> {
+export async function chainCreateAccessKey(
+	ctx: ActionCtx
+): Promise<Chain<{ keyAddress: string; encPrivKey: string }>> {
 	if (chainMode() === 'live') {
 		try {
 			const k = await ctx.runAction(liveCreateAccessKey, {});
@@ -148,7 +169,13 @@ export async function chainAuthorizeKey(
 	}
 ): Promise<Chain<{ tx: TxResultJson }>> {
 	if (chainMode() === 'live') {
-		return { ok: false, error: { name: 'NotSupported', message: 'In live mode the importer authorizes the key in the browser.' } };
+		return {
+			ok: false,
+			error: {
+				name: 'NotSupported',
+				message: 'In live mode the importer authorizes the key in the browser.'
+			}
+		};
 	}
 	const r = await ctx.runMutation(internal.sim.authorizeKey, {
 		account: a.account,
@@ -167,16 +194,37 @@ export async function chainAuthorizeKey(
 export async function chainKeyState(
 	ctx: ActionCtx,
 	a: { account: string; keyAddress: string; at?: number }
-): Promise<Chain<{ remainingUnits: string; periodEnd: number; expiry: number; isRevoked: boolean; exists: boolean }>> {
+): Promise<
+	Chain<{
+		remainingUnits: string;
+		periodEnd: number;
+		expiry: number;
+		isRevoked: boolean;
+		exists: boolean;
+	}>
+> {
 	if (chainMode() === 'live') {
 		try {
-			const s = await ctx.runAction(liveGetAccessKeyState, { account: a.account, keyAddress: a.keyAddress });
-			return { ok: true, ...s, periodEnd: toMs(s.periodEnd), expiry: toMs(s.expiry), exists: s.expiry !== 0 };
+			const s = await ctx.runAction(liveGetAccessKeyState, {
+				account: a.account,
+				keyAddress: a.keyAddress
+			});
+			return {
+				ok: true,
+				...s,
+				periodEnd: toMs(s.periodEnd),
+				expiry: toMs(s.expiry),
+				exists: s.expiry !== 0
+			};
 		} catch (e) {
 			return rpcFail(e);
 		}
 	}
-	const s = await ctx.runQuery(internal.sim.keyState, { account: a.account, keyId: a.keyAddress, at: a.at });
+	const s = await ctx.runQuery(internal.sim.keyState, {
+		account: a.account,
+		keyId: a.keyAddress,
+		at: a.at
+	});
 	return { ok: true, ...s };
 }
 
@@ -243,11 +291,18 @@ export async function chainRevokeKey(
 		const s = await chainKeyState(ctx, a);
 		if (!s.ok) return s;
 		if (!s.isRevoked) {
-			return { ok: false, error: { name: 'RevocationPending', message: 'The importer has not revoked this key yet.' } };
+			return {
+				ok: false,
+				error: { name: 'RevocationPending', message: 'The importer has not revoked this key yet.' }
+			};
 		}
 		return { ok: true, tx: null };
 	}
-	const r = await ctx.runMutation(internal.sim.revokeKey, { account: a.account, keyId: a.keyAddress, at: a.at });
+	const r = await ctx.runMutation(internal.sim.revokeKey, {
+		account: a.account,
+		keyId: a.keyAddress,
+		at: a.at
+	});
 	if (!r.ok) return r;
 	await waitFinality(r.tx.finalityMs);
 	return { ok: true, tx: r.tx };
@@ -305,7 +360,11 @@ export async function chainResolveDispute(
 ): Promise<Chain<{ tx: TxResultJson; legs: SimLeg[] }>> {
 	if (chainMode() === 'live') {
 		try {
-			const tx = await ctx.runAction(liveResolveDispute, { receipt: a.receipt, toLineUnits: a.toLineUnits, memo: a.memo });
+			const tx = await ctx.runAction(liveResolveDispute, {
+				receipt: a.receipt,
+				toLineUnits: a.toLineUnits,
+				memo: a.memo
+			});
 			return { ok: true, tx, legs: [] };
 		} catch (e) {
 			return rpcFail(e);
@@ -334,7 +393,11 @@ export async function chainReturnToSender(
 			return rpcFail(e);
 		}
 	}
-	const r = await ctx.runMutation(internal.sim.returnToSender, { receiptId: a.receiptId, memo: a.memo, at: a.at });
+	const r = await ctx.runMutation(internal.sim.returnToSender, {
+		receiptId: a.receiptId,
+		memo: a.memo,
+		at: a.at
+	});
 	if (!r.ok) return r;
 	await waitFinality(r.tx.finalityMs);
 	return r;

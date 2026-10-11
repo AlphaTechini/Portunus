@@ -82,6 +82,14 @@ export interface SettlementPlan {
 	};
 }
 
+/**
+ * pendingOnChain.step for a settlement. Only line/window/batch settlements are retried by the
+ * sweep; an importer's accept or dispute failed on-chain must be re-confirmed by the importer.
+ */
+function settleStep(source: SettleSource): string {
+	return source === 'dispute' || source === 'importer' ? 'settle:importer' : 'settle';
+}
+
 export interface BeginSettlementArgs {
 	containerId: Id<'containers'>;
 	now: number;
@@ -95,7 +103,10 @@ export interface BeginSettlementArgs {
 	actor: string;
 }
 
-export async function beginSettlementOp(ctx: MutationCtx, a: BeginSettlementArgs): Promise<SettlementPlan> {
+export async function beginSettlementOp(
+	ctx: MutationCtx,
+	a: BeginSettlementArgs
+): Promise<SettlementPlan> {
 	const c = await ctx.db.get(a.containerId);
 	if (!c) throw appError('NOT_FOUND', 'Container not found.');
 	if (c.state !== 'returned') {
@@ -110,19 +121,38 @@ export async function beginSettlementOp(ctx: MutationCtx, a: BeginSettlementArgs
 	if (!c.returnReceipt || c.returnedAt === undefined || c.freeTimeEndsAt === undefined) {
 		throw appError('INVALID_STATE', 'Record the return of the empty before settling.');
 	}
-	if (a.source === 'window' && c.settlementWindowEndsAt !== undefined && a.now < c.settlementWindowEndsAt) {
-		throw appError('WINDOW_OPEN', `The settlement window is open until ${fmtDate(c.settlementWindowEndsAt)}.`);
+	if (
+		a.source === 'window' &&
+		c.settlementWindowEndsAt !== undefined &&
+		a.now < c.settlementWindowEndsAt
+	) {
+		throw appError(
+			'WINDOW_OPEN',
+			`The settlement window is open until ${fmtDate(c.settlementWindowEndsAt)}.`
+		);
 	}
-	if (a.source === 'dispute' && c.settlementWindowEndsAt !== undefined && a.now >= c.settlementWindowEndsAt) {
+	if (
+		a.source === 'dispute' &&
+		c.settlementWindowEndsAt !== undefined &&
+		a.now >= c.settlementWindowEndsAt
+	) {
 		throw appError('WINDOW_CLOSED', 'The dispute window has closed.');
 	}
 	const line = await ctx.db.get(c.lineOrgId);
 	if (!line) throw appError('NOT_FOUND', 'Line not found.');
 	const days = detentionDaysAt(
-		{ freeTimeEndsAt: c.freeTimeEndsAt, maxDetentionDays: c.maxDetentionDays, returnedAt: c.returnedAt },
+		{
+			freeTimeEndsAt: c.freeTimeEndsAt,
+			maxDetentionDays: c.maxDetentionDays,
+			returnedAt: c.returnedAt
+		},
 		a.now
 	);
-	const accruedUnits = accrued({ days, dailyRateUnits: c.dailyRateUnits, depositUnits: c.depositUnits });
+	const accruedUnits = accrued({
+		days,
+		dailyRateUnits: c.dailyRateUnits,
+		depositUnits: c.depositUnits
+	});
 	const damageRaw = u(a.damageUnits ?? c.damageUnits ?? '0');
 	if (damageRaw < 0n) throw appError('INVALID', 'Damage cannot be negative.');
 	const settlementContract = line.settlementContract ?? line.depositsAccount ?? '';
@@ -154,7 +184,8 @@ export async function beginSettlementOp(ctx: MutationCtx, a: BeginSettlementArgs
 		)
 			.filter((p) => p.kind === 'deposit' && p.status === 'confirmed' && p.receiptId && p.receipt)
 			.sort((x, y) => x.timestamp - y.timestamp);
-		if (deposits.length === 0) throw appError('INVALID_STATE', 'No held deposit was found for this container.');
+		if (deposits.length === 0)
+			throw appError('INVALID_STATE', 'No held deposit was found for this container.');
 		const held = deposits.reduce((s, p) => s + u(p.amountUnits), 0n);
 		const disputed = u(a.disputedUnits ?? '0');
 		if (a.dispute) {
@@ -208,7 +239,11 @@ export async function beginSettlementOp(ctx: MutationCtx, a: BeginSettlementArgs
 				resolverOrgId: (await resolverFor(ctx, c))!,
 				receiptEscrows: items
 					.filter((i) => u(i.disputedUnits) > 0n)
-					.map((i) => ({ receiptId: i.receiptId, receipt: i.receipt, escrowUnits: i.disputedUnits })),
+					.map((i) => ({
+						receiptId: i.receiptId,
+						receipt: i.receipt,
+						escrowUnits: i.disputedUnits
+					})),
 				openedAt: a.now
 			});
 		}
@@ -222,9 +257,9 @@ export async function beginSettlementOp(ctx: MutationCtx, a: BeginSettlementArgs
 			chargesPostedAt: c.chargesPostedAt ?? a.now,
 			disputeId: disputeId ?? c.disputeId,
 			pendingOnChain: {
-				step: 'settle',
-				since: prev?.step === 'settle' ? prev.since : a.now,
-				attempts: prev?.step === 'settle' ? prev.attempts + 1 : 1,
+				step: settleStep(a.source),
+				since: prev?.step === settleStep(a.source) ? prev.since : a.now,
+				attempts: prev?.step === settleStep(a.source) ? prev.attempts + 1 : 1,
 				lastError: undefined
 			}
 		});
@@ -243,22 +278,32 @@ export async function beginSettlementOp(ctx: MutationCtx, a: BeginSettlementArgs
 
 	// Deposit-free: detention was collected daily. Settlement finalises, optionally pulls damage, revokes the key.
 	if (a.disputedUnits && u(a.disputedUnits) > 0n) {
-		throw appError('NOT_SUPPORTED', 'Deposit-free pulls are final; there is no held deposit to dispute against.');
+		throw appError(
+			'NOT_SUPPORTED',
+			'Deposit-free pulls are final; there is no held deposit to dispute against.'
+		);
 	}
 	const key = c.accessKeyId ? await ctx.db.get(c.accessKeyId) : null;
 	if (!key) throw appError('INVALID_STATE', 'No access key found for this container.');
 	if (c.detentionDays < days) {
-		throw appError('INVALID_STATE', 'Detention pulls are still catching up. Try again in a moment.', {
-			processed: c.detentionDays,
-			due: days
-		});
+		throw appError(
+			'INVALID_STATE',
+			'Detention pulls are still catching up. Try again in a moment.',
+			{
+				processed: c.detentionDays,
+				due: days
+			}
+		);
 	}
 	const pulled = u(c.pulledUnits);
 	let damage = damageRaw;
 	if (damage > 0n) {
 		const cap = u(key.dailyLimitUnits);
 		if (damage > cap) {
-			throw appError('CHARGE_TOO_HIGH', `Damage on a deposit-free container cannot exceed the access key's daily cap of ${formatUsd(cap)}.`);
+			throw appError(
+				'CHARGE_TOO_HIGH',
+				`Damage on a deposit-free container cannot exceed the access key's daily cap of ${formatUsd(cap)}.`
+			);
 		}
 		const room = u(c.depositUnits) - pulled;
 		if (damage > room) damage = room > 0n ? room : 0n;
@@ -274,9 +319,9 @@ export async function beginSettlementOp(ctx: MutationCtx, a: BeginSettlementArgs
 		chargeNote: a.note ?? c.chargeNote,
 		chargesPostedAt: c.chargesPostedAt ?? a.now,
 		pendingOnChain: {
-			step: 'settle',
-			since: c.pendingOnChain?.step === 'settle' ? c.pendingOnChain.since : a.now,
-			attempts: c.pendingOnChain?.step === 'settle' ? c.pendingOnChain.attempts + 1 : 1
+			step: settleStep(a.source),
+			since: c.pendingOnChain?.step === settleStep(a.source) ? c.pendingOnChain.since : a.now,
+			attempts: c.pendingOnChain?.step === settleStep(a.source) ? c.pendingOnChain.attempts + 1 : 1
 		}
 	});
 	return {
@@ -300,10 +345,15 @@ export async function beginSettlementOp(ctx: MutationCtx, a: BeginSettlementArgs
 	};
 }
 
-async function resolverFor(ctx: MutationCtx, c: Doc<'containers'>): Promise<Id<'organizations'> | undefined> {
+async function resolverFor(
+	ctx: MutationCtx,
+	c: Doc<'containers'>
+): Promise<Id<'organizations'> | undefined> {
 	const rel = await ctx.db
 		.query('relationships')
-		.withIndex('by_pair', (q) => q.eq('lineOrgId', c.lineOrgId).eq('importerOrgId', c.importerOrgId))
+		.withIndex('by_pair', (q) =>
+			q.eq('lineOrgId', c.lineOrgId).eq('importerOrgId', c.importerOrgId)
+		)
 		.unique();
 	if (rel) return rel.resolverOrgId;
 	const line = await ctx.db.get(c.lineOrgId);
@@ -318,12 +368,17 @@ export interface FinishInfo {
 }
 
 /** Held mode: the settlement transaction is final. Record payments and close (or hold for dispute). */
-export async function finishHeldSettlementOp(ctx: MutationCtx, plan: SettlementPlan, f: FinishInfo): Promise<Doc<'containers'>> {
+export async function finishHeldSettlementOp(
+	ctx: MutationCtx,
+	plan: SettlementPlan,
+	f: FinishInfo
+): Promise<Doc<'containers'>> {
 	const c = await ctx.db.get(plan.containerId);
 	if (!c) throw appError('NOT_FOUND', 'Container not found.');
 	if (c.state === 'settled' || c.state === 'disputed') return c; // idempotent
 	const at = f.tx.timestamp;
-	const legFor = (receiptId: string, kind: SimLeg['kind']) => f.legs.find((l) => l.receiptId === receiptId && l.kind === kind);
+	const legFor = (receiptId: string, kind: SimLeg['kind']) =>
+		f.legs.find((l) => l.receiptId === receiptId && l.kind === kind);
 	let refundTotal = 0n;
 	let chargeTotal = 0n;
 	for (const item of plan.items) {
@@ -426,7 +481,11 @@ export async function finishHeldSettlementOp(ctx: MutationCtx, plan: SettlementP
 	return next;
 }
 
-async function receiptToken(ctx: MutationCtx, c: Doc<'containers'>, receiptId: string): Promise<string | undefined> {
+async function receiptToken(
+	ctx: MutationCtx,
+	c: Doc<'containers'>,
+	receiptId: string
+): Promise<string | undefined> {
 	const p = (
 		await ctx.db
 			.query('payments')
@@ -436,14 +495,25 @@ async function receiptToken(ctx: MutationCtx, c: Doc<'containers'>, receiptId: s
 	return p?.token;
 }
 
-async function updateTrackRecord(ctx: MutationCtx, c: Doc<'containers'>, plan: SettlementPlan): Promise<void> {
+async function updateTrackRecord(
+	ctx: MutationCtx,
+	c: Doc<'containers'>,
+	plan: SettlementPlan
+): Promise<void> {
 	const rel = await ctx.db
 		.query('relationships')
-		.withIndex('by_pair', (q) => q.eq('lineOrgId', c.lineOrgId).eq('importerOrgId', c.importerOrgId))
+		.withIndex('by_pair', (q) =>
+			q.eq('lineOrgId', c.lineOrgId).eq('importerOrgId', c.importerOrgId)
+		)
 		.unique();
 	if (!rel) return;
-	const clean = isCleanReturn({ detentionDays: plan.detentionDays, disputed: false }) && u(plan.damageUnits) === 0n;
-	await ctx.db.patch(rel._id, clean ? { cleanReturns: rel.cleanReturns + 1 } : { lateReturns: rel.lateReturns + 1 });
+	const clean =
+		isCleanReturn({ detentionDays: plan.detentionDays, disputed: false }) &&
+		u(plan.damageUnits) === 0n;
+	await ctx.db.patch(
+		rel._id,
+		clean ? { cleanReturns: rel.cleanReturns + 1 } : { lateReturns: rel.lateReturns + 1 }
+	);
 }
 
 export interface DepositFreeFinish {
@@ -539,11 +609,16 @@ export async function finishDepositFreeSettlementOp(
 	});
 	const rel = await ctx.db
 		.query('relationships')
-		.withIndex('by_pair', (q) => q.eq('lineOrgId', c.lineOrgId).eq('importerOrgId', c.importerOrgId))
+		.withIndex('by_pair', (q) =>
+			q.eq('lineOrgId', c.lineOrgId).eq('importerOrgId', c.importerOrgId)
+		)
 		.unique();
 	if (rel) {
 		const clean = plan.detentionDays === 0 && damage === 0n;
-		await ctx.db.patch(rel._id, clean ? { cleanReturns: rel.cleanReturns + 1 } : { lateReturns: rel.lateReturns + 1 });
+		await ctx.db.patch(
+			rel._id,
+			clean ? { cleanReturns: rel.cleanReturns + 1 } : { lateReturns: rel.lateReturns + 1 }
+		);
 	}
 	// Key bookkeeping (the payment row for the revocation is written by recordKeyRevokedOp).
 	if (f.revokePending) {
@@ -573,11 +648,23 @@ export async function failSettlementOp(
 	const message = typeof error === 'string' ? error : error.message;
 	const prev = c.pendingOnChain;
 	await setState(ctx, c, 'returned', now, {
-		pendingOnChain: { step: 'settle', since: prev?.since ?? now, attempts: prev?.attempts ?? 1, lastError: message },
+		pendingOnChain: {
+			step: settleStep(plan.source),
+			since: prev?.since ?? now,
+			attempts: prev?.attempts ?? 1,
+			lastError: message
+		},
 		disputeId: plan.disputeId ? undefined : c.disputeId
 	});
 	if (plan.disputeId) await ctx.db.delete(plan.disputeId);
-	await logEvent(ctx, c._id, 'settle_failed', 'Settlement is pending on-chain', now, `${message} It will be retried automatically.`);
+	await logEvent(
+		ctx,
+		c._id,
+		'settle_failed',
+		'Settlement is pending on-chain',
+		now,
+		`${message} It will be retried automatically.`
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -596,7 +683,13 @@ export interface ResolvePlan {
 	chargesAddress: string;
 	settlementContract: string;
 	/** Per receipt: how much of the escrow goes to the line. */
-	items: { receiptId: string; receipt: string; escrowUnits: string; toLineUnits: string; originator: string }[];
+	items: {
+		receiptId: string;
+		receipt: string;
+		escrowUnits: string;
+		toLineUnits: string;
+		originator: string;
+	}[];
 	memo: string;
 	memoHex: Hex;
 }
@@ -654,7 +747,13 @@ export async function beginResolveOp(
 export async function finishResolveOp(
 	ctx: MutationCtx,
 	plan: ResolvePlan,
-	f: { txs: { receiptId: string; tx: TxResultJson; legs: SimLeg[] }[]; now: number; decidedBy: Id<'users'>; note: string; actor: string }
+	f: {
+		txs: { receiptId: string; tx: TxResultJson; legs: SimLeg[] }[];
+		now: number;
+		decidedBy: Id<'users'>;
+		note: string;
+		actor: string;
+	}
 ): Promise<void> {
 	const d = await ctx.db.get(plan.disputeId);
 	const c = await ctx.db.get(plan.containerId);
@@ -741,7 +840,9 @@ export async function finishResolveOp(
 	}
 	const rel = await ctx.db
 		.query('relationships')
-		.withIndex('by_pair', (q) => q.eq('lineOrgId', c.lineOrgId).eq('importerOrgId', c.importerOrgId))
+		.withIndex('by_pair', (q) =>
+			q.eq('lineOrgId', c.lineOrgId).eq('importerOrgId', c.importerOrgId)
+		)
 		.unique();
 	if (rel) await ctx.db.patch(rel._id, { lateReturns: rel.lateReturns + 1 });
 	await refreshRequestStatus(ctx, c.requestId);
@@ -770,7 +871,11 @@ export async function finishHeldReturnOp(
 ): Promise<void> {
 	const h = await ctx.db.get(plan.heldTransferId);
 	if (!h || h.status !== 'held') return;
-	await ctx.db.patch(h._id, { status: 'returned', returnedTxHash: f.tx.txHash, returnedAt: f.tx.timestamp });
+	await ctx.db.patch(h._id, {
+		status: 'returned',
+		returnedTxHash: f.tx.txHash,
+		returnedAt: f.tx.timestamp
+	});
 	await ctx.db.insert('payments', {
 		kind: 'held_return',
 		mode: f.tx.mode,

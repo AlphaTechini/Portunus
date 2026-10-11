@@ -86,7 +86,10 @@ export async function containerView(
 	};
 }
 
-export async function simBalance(ctx: { db: DatabaseReader }, address: string | undefined): Promise<string | null> {
+export async function simBalance(
+	ctx: { db: DatabaseReader },
+	address: string | undefined
+): Promise<string | null> {
 	if (!address || chainMode() === 'live') return null;
 	const store = makeSimStore(ctx.db as never);
 	return (await store.getBalance(address, ALPHA_USD)).toString();
@@ -103,7 +106,8 @@ export function termsFor(line: Doc<'organizations'>, request: Doc<'releaseReques
 				: 'No money moves now. After free time ends the line can pull at most one day of detention per day, only to its own charges address, until the empty is returned. The key is revoked at settlement.',
 		detentionRule:
 			'Detention is charged per started day after free time ends, up to the deposit amount. Final charges cannot exceed the deposit, or accrued detention plus stated damage.',
-		disputeRule: 'You can dispute posted charges once, inside the window. Only the disputed amount stays held; the rest settles immediately.'
+		disputeRule:
+			'You can dispute posted charges once, inside the window. Only the disputed amount stays held; the rest settles immediately.'
 	};
 }
 

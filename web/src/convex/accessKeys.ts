@@ -8,9 +8,26 @@ import { keccak256, stringToHex } from 'viem';
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import { action, internalMutation, internalQuery, type QueryCtx } from './_generated/server';
-import { appError, chainMode, lc, loadContainerFor, loadRequestFor, productNow, requireImporter, type Approval, type SessionInfo } from './helpers';
+import {
+	appError,
+	chainMode,
+	lc,
+	loadContainerFor,
+	loadRequestFor,
+	productNow,
+	requireImporter,
+	type Approval,
+	type SessionInfo
+} from './helpers';
 import { chainAuthorizeKey, chainCreateAccessKey, chainKeyState, chainRevokeKey } from './chain';
-import { insertPreparedKey, keyTerms, plannedKeyExpiry, recordKeyAuthorizedOp, recordKeyRevokedOp, type KeyTerms } from './opsKeys';
+import {
+	insertPreparedKey,
+	keyTerms,
+	plannedKeyExpiry,
+	recordKeyAuthorizedOp,
+	recordKeyRevokedOp,
+	type KeyTerms
+} from './opsKeys';
 import { approvalV, checkApproval } from './webauthn';
 import { stableJson } from '../lib/shared/tempo/sim';
 import type { TxResultJson } from '../lib/shared/tempo/adapter';
@@ -46,7 +63,8 @@ function payerAddress(s: SessionInfo): string {
 
 async function loadPrepareState(ctx: QueryCtx, s: SessionInfo, requestId: Id<'releaseRequests'>) {
 	const request = await loadRequestFor(ctx, s, requestId);
-	if (request.mode !== 'depositFree') throw appError('NOT_SUPPORTED', 'This request uses held deposits. Pay the deposits instead.');
+	if (request.mode !== 'depositFree')
+		throw appError('NOT_SUPPORTED', 'This request uses held deposits. Pay the deposits instead.');
 	const line = await ctx.db.get(request.lineOrgId);
 	if (!line) throw appError('NOT_FOUND', 'Line not found.');
 	const containers = (
@@ -74,7 +92,9 @@ export const loadForPrepare = internalQuery({
 		const account = payerAddress(s);
 		if (!account) throw appError('INVALID', 'Your account has no Tempo address yet.');
 		const { rows } = await loadPrepareState(ctx, s, a.requestId);
-		const needKeys = rows.filter((r) => r.container.state === 'requested' && !r.key).map((r) => r.container._id);
+		const needKeys = rows
+			.filter((r) => r.container.state === 'requested' && !r.key)
+			.map((r) => r.container._id);
 		return { needKeys, account };
 	}
 });
@@ -83,7 +103,9 @@ export const storePrepared = internalMutation({
 	args: {
 		sessionToken: v.string(),
 		requestId: v.id('releaseRequests'),
-		keys: v.array(v.object({ containerId: v.id('containers'), keyAddress: v.string(), encPrivKey: v.string() })),
+		keys: v.array(
+			v.object({ containerId: v.id('containers'), keyAddress: v.string(), encPrivKey: v.string() })
+		),
 		account: v.string()
 	},
 	handler: async (ctx, a): Promise<PrepareResult> => {
@@ -111,7 +133,12 @@ export const storePrepared = internalMutation({
 			if (expiry !== r.key.expiry) await ctx.db.patch(r.key._id, { expiry, preparedAt: now });
 			keys.push(keyTerms({ ...r.key, expiry }, r.container.number));
 		}
-		return { requestId: request._id, mode: chainMode(), payloadHash: payloadFor(request._id, keys), keys };
+		return {
+			requestId: request._id,
+			mode: chainMode(),
+			payloadHash: payloadFor(request._id, keys),
+			keys
+		};
 	}
 });
 
@@ -138,14 +165,22 @@ export const authPlan = internalQuery({
 	handler: async (
 		ctx,
 		a
-	): Promise<{ payloadHash: string; approvedWith: 'passkey' | 'demo'; items: { keyId: Id<'accessKeys'>; terms: KeyTerms }[] }> => {
+	): Promise<{
+		payloadHash: string;
+		approvedWith: 'passkey' | 'demo';
+		items: { keyId: Id<'accessKeys'>; terms: KeyTerms }[];
+	}> => {
 		const s = await requireImporter(ctx, a.sessionToken);
 		const { request, rows } = await loadPrepareState(ctx, s, a.requestId);
 		const items = rows
 			.filter((r) => r.key && r.key.status === 'prepared')
 			.map((r) => ({ keyId: r.key!._id, terms: keyTerms(r.key!, r.container.number) }));
-		if (items.length === 0) throw appError('INVALID_STATE', 'There is nothing left to authorize on this request.');
-		const payloadHash = payloadFor(request._id, items.map((i) => i.terms));
+		if (items.length === 0)
+			throw appError('INVALID_STATE', 'There is nothing left to authorize on this request.');
+		const payloadHash = payloadFor(
+			request._id,
+			items.map((i) => i.terms)
+		);
 		const { approvedWith } = checkApproval(s.user, a.approval as Approval, payloadHash);
 		return { payloadHash, approvedWith, items };
 	}
@@ -195,7 +230,9 @@ export const authorize = action({
 		sessionToken: v.string(),
 		requestId: v.id('releaseRequests'),
 		approval: approvalV,
-		liveTxHashes: v.optional(v.array(v.object({ containerId: v.id('containers'), txHash: v.string() })))
+		liveTxHashes: v.optional(
+			v.array(v.object({ containerId: v.id('containers'), txHash: v.string() }))
+		)
 	},
 	handler: async (ctx, a): Promise<AuthorizeResult> => {
 		const plan = await ctx.runQuery(internal.accessKeys.authPlan, {
@@ -203,7 +240,9 @@ export const authorize = action({
 			requestId: a.requestId,
 			approval: a.approval
 		});
-		const me = await ctx.runQuery(internal.auth_internal.actorName, { sessionToken: a.sessionToken });
+		const me = await ctx.runQuery(internal.auth_internal.actorName, {
+			sessionToken: a.sessionToken
+		});
 		const out: AuthorizeResult = { requestId: a.requestId, authorized: [], failed: [] };
 		const now = await ctx.runQuery(internal.deposits.clock, {});
 		for (const item of plan.items) {
@@ -239,7 +278,11 @@ export const authorize = action({
 				else error = r.error.message;
 			}
 			if (!tx) {
-				out.failed.push({ containerId: t.containerId, number: t.number, error: error ?? 'Authorization failed.' });
+				out.failed.push({
+					containerId: t.containerId,
+					number: t.number,
+					error: error ?? 'Authorization failed.'
+				});
 				continue;
 			}
 			await ctx.runMutation(internal.accessKeys.recordAuthorized, {
@@ -271,15 +314,23 @@ export const revokePlan = internalQuery({
 	handler: async (
 		ctx,
 		a
-	): Promise<{ keyId: Id<'accessKeys'>; account: string; keyAddress: string; actor: string; midFlight: boolean }> => {
+	): Promise<{
+		keyId: Id<'accessKeys'>;
+		account: string;
+		keyAddress: string;
+		actor: string;
+		midFlight: boolean;
+	}> => {
 		const s = await requireImporter(ctx, a.sessionToken);
 		const c = await loadContainerFor(ctx, s, a.containerId);
 		const key = await ctx.db
 			.query('accessKeys')
 			.withIndex('by_container', (q) => q.eq('containerId', c._id))
 			.first();
-		if (!key || key.status === 'prepared') throw appError('INVALID_STATE', 'There is no authorized access key for this container.');
-		if (key.status === 'revoked') throw appError('INVALID_STATE', 'This access key is already revoked.');
+		if (!key || key.status === 'prepared')
+			throw appError('INVALID_STATE', 'There is no authorized access key for this container.');
+		if (key.status === 'revoked')
+			throw appError('INVALID_STATE', 'This access key is already revoked.');
 		return {
 			keyId: key._id,
 			account: key.account,
@@ -311,12 +362,23 @@ export const recordRevoked = internalMutation({
  */
 export const revoke = action({
 	args: { sessionToken: v.string(), containerId: v.id('containers') },
-	handler: async (ctx, a): Promise<{ revoked: true; txHash: string | null; midFlight: boolean }> => {
+	handler: async (
+		ctx,
+		a
+	): Promise<{ revoked: true; txHash: string | null; midFlight: boolean }> => {
 		const plan = await ctx.runQuery(internal.accessKeys.revokePlan, a);
 		const now = await ctx.runQuery(internal.deposits.clock, {});
-		const r = await chainRevokeKey(ctx, { account: plan.account, keyAddress: plan.keyAddress, at: now });
+		const r = await chainRevokeKey(ctx, {
+			account: plan.account,
+			keyAddress: plan.keyAddress,
+			at: now
+		});
 		if (!r.ok) throw appError('CHAIN_ERROR', r.error.message, { name: r.error.name });
-		await ctx.runMutation(internal.accessKeys.recordRevoked, { keyId: plan.keyId, tx: r.tx, actor: plan.actor });
+		await ctx.runMutation(internal.accessKeys.recordRevoked, {
+			keyId: plan.keyId,
+			tx: r.tx,
+			actor: plan.actor
+		});
 		return { revoked: true, txHash: r.tx?.txHash ?? null, midFlight: plan.midFlight };
 	}
 });

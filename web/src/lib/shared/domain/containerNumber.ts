@@ -27,7 +27,8 @@ function charValue(ch: string): number {
 /** Check digit for the first 10 characters (owner + category + serial). */
 export function computeCheckDigit(first10: string): number {
 	const s = normalizeContainerNumber(first10);
-	if (!/^[A-Z]{4}\d{6}$/.test(s)) throw new Error(`Expected 4 letters and 6 digits, got "${first10}"`);
+	if (!/^[A-Z]{4}\d{6}$/.test(s))
+		throw new Error(`Expected 4 letters and 6 digits, got "${first10}"`);
 	let sum = 0;
 	for (let i = 0; i < 10; i++) sum += charValue(s[i]) * 2 ** i;
 	return (sum % 11) % 10;
@@ -40,7 +41,8 @@ export function checkContainerNumber(input: string): ContainerNumberCheck {
 	if (!/^[A-Z]{3}[UJZ]\d{7}$/.test(s)) {
 		return {
 			ok: false,
-			reason: 'A container number is 3 owner letters, U, J or Z, then 7 digits (for example MRDU 123456 5).'
+			reason:
+				'A container number is 3 owner letters, U, J or Z, then 7 digits (for example MRDU 123456 5).'
 		};
 	}
 	const expected = computeCheckDigit(s.slice(0, 10));
@@ -65,7 +67,8 @@ export function formatContainerNumber(input: string): string {
 export function generateContainerNumber(prefix: string, serial: number): string {
 	const p = prefix.toUpperCase();
 	if (!/^[A-Z]{3}[UJZ]$/.test(p)) throw new Error(`Bad owner prefix: ${prefix}`);
-	if (!Number.isInteger(serial) || serial < 0 || serial > 999_999) throw new Error(`Bad serial: ${serial}`);
+	if (!Number.isInteger(serial) || serial < 0 || serial > 999_999)
+		throw new Error(`Bad serial: ${serial}`);
 	const first10 = `${p}${String(serial).padStart(6, '0')}`;
 	return `${first10}${computeCheckDigit(first10)}`;
 }

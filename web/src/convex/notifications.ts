@@ -3,7 +3,11 @@ import { mutation, query } from './_generated/server';
 import { requireSession } from './helpers';
 
 export const list = query({
-	args: { sessionToken: v.string(), limit: v.optional(v.number()), unreadOnly: v.optional(v.boolean()) },
+	args: {
+		sessionToken: v.string(),
+		limit: v.optional(v.number()),
+		unreadOnly: v.optional(v.boolean())
+	},
 	handler: async (ctx, a) => {
 		const s = await requireSession(ctx, a.sessionToken);
 		const rows = await ctx.db

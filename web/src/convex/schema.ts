@@ -408,7 +408,12 @@ export default defineSchema({
 		blockedReason: v.union(v.literal('tokenFilter'), v.literal('receivePolicy')),
 		txHash: v.string(),
 		logIndex: v.number(),
-		status: v.union(v.literal('held'), v.literal('settled'), v.literal('disputed'), v.literal('returned')),
+		status: v.union(
+			v.literal('held'),
+			v.literal('settled'),
+			v.literal('disputed'),
+			v.literal('returned')
+		),
 		escrow: v.string(),
 		charged: v.string(),
 		refunded: v.string(),

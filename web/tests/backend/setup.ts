@@ -11,11 +11,11 @@ export { api, internal };
 export type TestConvex = ReturnType<typeof newBackend>;
 
 /** Fresh in-memory backend. Sim finality sleeps are off so tests are instant. */
-export function newBackend() {
+export function newBackend(overrides: Record<string, () => Promise<unknown>> = {}) {
 	process.env.TEMPO_MODE = 'sim';
 	process.env.SIM_FINALITY_SLEEP = 'off';
 	process.env.DEMO_MODE = 'on';
-	return convexTest(schema, modules);
+	return convexTest(schema, { ...modules, ...overrides });
 }
 
 export async function seeded() {
@@ -30,7 +30,9 @@ export async function signIn(t: TestConvex, name: string): Promise<string> {
 	const personas = await t.query(api.auth.listDemoPersonas, {});
 	const p = personas.find((x) => x.name === name);
 	if (!p) throw new Error(`No persona ${name}`);
-	const { sessionToken } = await t.mutation(api.auth.signInAsDemo, { userId: p.userId as Id<'users'> });
+	const { sessionToken } = await t.mutation(api.auth.signInAsDemo, {
+		userId: p.userId as Id<'users'>
+	});
 	return sessionToken;
 }
 
@@ -78,7 +80,14 @@ export async function releasedHeld(
 	types: ('20GP' | '40GP' | '40HC' | '20RF' | '40RF')[]
 ) {
 	const r = await newRequest(t, line, importer, types);
-	await t.action(api.deposits.payBatch, { sessionToken: importerToken, requestId: r.requestId, approval: demoApproval });
-	const rel = await t.mutation(api.releaseRequests.issueReleaseOrder, { sessionToken: line, requestId: r.requestId });
+	await t.action(api.deposits.payBatch, {
+		sessionToken: importerToken,
+		requestId: r.requestId,
+		approval: demoApproval
+	});
+	const rel = await t.mutation(api.releaseRequests.issueReleaseOrder, {
+		sessionToken: line,
+		requestId: r.requestId
+	});
 	return { requestId: r.requestId, containerIds: rel.released };
 }

@@ -77,9 +77,11 @@ export const depositMemo = (container: string, billOfLading: string): string =>
 export const pullMemo = (container: string, day: number, billOfLading: string): string =>
 	`PC ${container} D${String(day).padStart(2, '0')} ${tail(billOfLading, 12)}`;
 
-export const chargeMemo = (container: string, eir: string): string => `PS ${container} ${tail(eir, 17)}`;
+export const chargeMemo = (container: string, eir: string): string =>
+	`PS ${container} ${tail(eir, 17)}`;
 
-export const refundMemo = (container: string, eir: string): string => `PR ${container} ${tail(eir, 17)}`;
+export const refundMemo = (container: string, eir: string): string =>
+	`PR ${container} ${tail(eir, 17)}`;
 
 export const heldReturnMemo = (receiptId: string): string =>
 	`PX ${receiptId.replace(/^0x/, '').slice(0, 16)}`;
@@ -87,7 +89,8 @@ export const heldReturnMemo = (receiptId: string): string =>
 export const keyAuthorizedMemo = (container: string, billOfLading: string): string =>
 	`KA ${container} ${tail(billOfLading, 17)}`;
 
-export const keyRevokedMemo = (container: string, ref: string): string => `KR ${container} ${tail(ref, 17)}`;
+export const keyRevokedMemo = (container: string, ref: string): string =>
+	`KR ${container} ${tail(ref, 17)}`;
 
 export const disputeReleaseMemo = (container: string, eir: string): string =>
 	`DR ${container} ${tail(eir, 17)}`;

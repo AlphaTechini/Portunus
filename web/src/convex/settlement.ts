@@ -42,14 +42,23 @@ export interface SettleOutcome {
 export const begin = internalMutation({
 	args: {
 		containerId: v.id('containers'),
-		source: v.union(v.literal('line'), v.literal('window'), v.literal('importer'), v.literal('batch'), v.literal('dispute')),
+		source: v.union(
+			v.literal('line'),
+			v.literal('window'),
+			v.literal('importer'),
+			v.literal('batch'),
+			v.literal('dispute')
+		),
 		damageUnits: v.optional(v.string()),
 		note: v.optional(v.string()),
 		disputedUnits: v.optional(v.string()),
-		dispute: v.optional(v.object({ openedBy: v.id('users'), reason: v.string(), evidence: v.optional(v.string()) })),
+		dispute: v.optional(
+			v.object({ openedBy: v.id('users'), reason: v.string(), evidence: v.optional(v.string()) })
+		),
 		actor: v.string()
 	},
-	handler: async (ctx, a): Promise<SettlementPlan> => beginSettlementOp(ctx, { ...a, now: await productNow(ctx) })
+	handler: async (ctx, a): Promise<SettlementPlan> =>
+		beginSettlementOp(ctx, { ...a, now: await productNow(ctx) })
 });
 
 export const finishHeld = internalMutation({
@@ -99,7 +108,12 @@ export const finishDepositFree = internalMutation({
 export const fail = internalMutation({
 	args: { plan: v.any(), error: v.any() },
 	handler: async (ctx, a): Promise<null> => {
-		await failSettlementOp(ctx, a.plan as SettlementPlan, a.error as ChainErr | string, await productNow(ctx));
+		await failSettlementOp(
+			ctx,
+			a.plan as SettlementPlan,
+			a.error as ChainErr | string,
+			await productNow(ctx)
+		);
 		return null;
 	}
 });
@@ -203,7 +217,12 @@ export async function executeSettlements(
 			}
 		} else {
 			for (const p of heldPlans) {
-				await ctx.runMutation(internal.settlement.finishHeld, { plan: p, tx: res.tx, legs: res.legs, actor: a.actor });
+				await ctx.runMutation(internal.settlement.finishHeld, {
+					plan: p,
+					tx: res.tx,
+					legs: res.legs,
+					actor: a.actor
+				});
 				const disputed = BigInt(p.disputedUnits) > 0n;
 				outcomes.push({
 					containerId: p.containerId,
@@ -272,7 +291,10 @@ export async function executeSettlements(
 /** Turn a skipped/failed outcome into a user-facing error (single-container actions). */
 export function throwIfNotDone(o: SettleOutcome): SettleOutcome {
 	if (o.status === 'skipped' || o.status === 'failed') {
-		throw new ConvexError({ code: o.code && o.code !== 'ERROR' ? o.code : 'INVALID_STATE', message: o.reason ?? 'Settlement did not complete.' });
+		throw new ConvexError({
+			code: o.code && o.code !== 'ERROR' ? o.code : 'INVALID_STATE',
+			message: o.reason ?? 'Settlement did not complete.'
+		});
 	}
 	return o;
 }

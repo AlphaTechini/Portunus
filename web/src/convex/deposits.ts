@@ -8,7 +8,16 @@ import { keccak256, stringToHex } from 'viem';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { action, internalMutation, internalQuery, query, type QueryCtx } from './_generated/server';
-import { appError, chainMode, lc, loadRequestFor, productNow, requireImporter, type Approval, type SessionInfo } from './helpers';
+import {
+	appError,
+	chainMode,
+	lc,
+	loadRequestFor,
+	productNow,
+	requireImporter,
+	type Approval,
+	type SessionInfo
+} from './helpers';
 import { chainConfirmDeposits, chainPayBatch } from './chain';
 import { ingestReceipts } from './opsDeposits';
 import { simBalance } from './views';
@@ -40,7 +49,9 @@ export interface DepositPlan {
 	sufficientBalance: boolean | null;
 }
 
-const overridesV = v.optional(v.array(v.object({ containerId: v.id('containers'), amountUnits: v.string() })));
+const overridesV = v.optional(
+	v.array(v.object({ containerId: v.id('containers'), amountUnits: v.string() }))
+);
 
 async function buildPlan(
 	ctx: QueryCtx,
@@ -49,7 +60,11 @@ async function buildPlan(
 	overrides?: { containerId: Id<'containers'>; amountUnits: string }[]
 ): Promise<DepositPlan> {
 	const request = await loadRequestFor(ctx, s, requestId);
-	if (request.mode !== 'held') throw appError('NOT_SUPPORTED', 'This request is deposit-free. Authorize the access key instead.');
+	if (request.mode !== 'held')
+		throw appError(
+			'NOT_SUPPORTED',
+			'This request is deposit-free. Authorize the access key instead.'
+		);
 	const containers = await ctx.db
 		.query('containers')
 		.withIndex('by_request', (q) => q.eq('requestId', request._id))
@@ -62,7 +77,8 @@ async function buildPlan(
 		const missing = u(c.depositUnits) - u(c.receivedUnits ?? '0');
 		const ov = overrides?.find((o) => o.containerId === c._id);
 		const amount = ov ? u(ov.amountUnits) : missing;
-		if (ov && (amount <= 0n || !/^\d+$/.test(ov.amountUnits))) throw appError('INVALID', `Enter a positive amount for ${c.number}.`);
+		if (ov && (amount <= 0n || !/^\d+$/.test(ov.amountUnits)))
+			throw appError('INVALID', `Enter a positive amount for ${c.number}.`);
 		if (!ov && amount <= 0n) continue;
 		const memo = depositMemo(c.number, request.billOfLading);
 		items.push({
@@ -78,11 +94,18 @@ async function buildPlan(
 			memoHex: encodeMemo(memo)
 		});
 	}
-	if (items.length === 0) throw appError('INVALID_STATE', 'There is nothing left to pay on this request.');
+	if (items.length === 0)
+		throw appError('INVALID_STATE', 'There is nothing left to pay on this request.');
 	const total = items.reduce((t, i) => t + u(i.amountUnits), 0n);
 	const balance = await simBalance(ctx, payer);
 	const payloadHash = keccak256(
-		stringToHex(stableJson({ requestId: request._id, payer, items: items.map((i) => ({ to: i.to, amount: i.amountUnits, memo: i.memoHex })) }))
+		stringToHex(
+			stableJson({
+				requestId: request._id,
+				payer,
+				items: items.map((i) => ({ to: i.to, amount: i.amountUnits, memo: i.memoHex }))
+			})
+		)
 	);
 	return {
 		requestId: request._id,
@@ -98,7 +121,11 @@ async function buildPlan(
 
 /** Importer: what one tap will pay, plus the payload hash the passkey signs. */
 export const preview = query({
-	args: { sessionToken: v.string(), requestId: v.id('releaseRequests'), amountOverrides: overridesV },
+	args: {
+		sessionToken: v.string(),
+		requestId: v.id('releaseRequests'),
+		amountOverrides: overridesV
+	},
 	handler: async (ctx, a): Promise<DepositPlan> => {
 		const s = await requireImporter(ctx, a.sessionToken);
 		return buildPlan(ctx, s, a.requestId, a.amountOverrides);
@@ -162,17 +189,19 @@ export const record = internalMutation({
 			.query('containers')
 			.withIndex('by_request', (q) => q.eq('requestId', a.requestId))
 			.collect();
-		const rows = containers.sort((x, y) => x.seq - y.seq).map((c) => {
-			const missing = u(c.depositUnits) - u(c.receivedUnits ?? '0');
-			return {
-				containerId: c._id,
-				number: c.number,
-				receivedUnits: c.receivedUnits ?? '0',
-				depositUnits: c.depositUnits,
-				missingUnits: (missing > 0n ? missing : 0n).toString(),
-				state: c.state
-			};
-		});
+		const rows = containers
+			.sort((x, y) => x.seq - y.seq)
+			.map((c) => {
+				const missing = u(c.depositUnits) - u(c.receivedUnits ?? '0');
+				return {
+					containerId: c._id,
+					number: c.number,
+					receivedUnits: c.receivedUnits ?? '0',
+					depositUnits: c.depositUnits,
+					missingUnits: (missing > 0n ? missing : 0n).toString(),
+					state: c.state
+				};
+			});
 		void ingest;
 		return {
 			mode: a.mode,
@@ -207,21 +236,33 @@ export const payBatch = action({
 			approval: a.approval
 		});
 		if (chainMode() === 'live') {
-			if (!a.txHash) throw appError('NOT_SUPPORTED', 'In live mode the browser submits the batch with your passkey, then calls recordLiveBatch.');
+			if (!a.txHash)
+				throw appError(
+					'NOT_SUPPORTED',
+					'In live mode the browser submits the batch with your passkey, then calls recordLiveBatch.'
+				);
 			return confirmLive(ctx, a.requestId, a.txHash, approvedWith);
 		}
 		const now = await ctx.runQuery(internal.deposits.clock, {});
 		const res = await chainPayBatch(ctx, {
 			payer: plan.payer,
-			items: plan.items.map((i) => ({ to: i.to, amountUnits: i.amountUnits, memo: i.memoHex as `0x${string}` })),
+			items: plan.items.map((i) => ({
+				to: i.to,
+				amountUnits: i.amountUnits,
+				memo: i.memoHex as `0x${string}`
+			})),
 			at: now
 		});
 		if (!res.ok) {
 			if (res.error.name === 'InsufficientBalance') {
-				throw appError('INSUFFICIENT_BALANCE', 'Your account does not hold enough AlphaUSD for this batch. No deposit was taken.', {
-					available: String(res.error.available ?? '0'),
-					required: String(res.error.required ?? plan.totalUnits)
-				});
+				throw appError(
+					'INSUFFICIENT_BALANCE',
+					'Your account does not hold enough AlphaUSD for this batch. No deposit was taken.',
+					{
+						available: String(res.error.available ?? '0'),
+						required: String(res.error.required ?? plan.totalUnits)
+					}
+				);
 			}
 			throw appError('CHAIN_ERROR', res.error.message, { name: res.error.name });
 		}
@@ -277,8 +318,12 @@ export const authorizeLive = internalQuery({
 export const recordLiveBatch = action({
 	args: { sessionToken: v.string(), requestId: v.id('releaseRequests'), txHash: v.string() },
 	handler: async (ctx, a): Promise<DepositResult> => {
-		if (chainMode() !== 'live') throw appError('NOT_SUPPORTED', 'recordLiveBatch is only used in live mode.');
-		const hasPasskey = await ctx.runQuery(internal.deposits.authorizeLive, { sessionToken: a.sessionToken, requestId: a.requestId });
+		if (chainMode() !== 'live')
+			throw appError('NOT_SUPPORTED', 'recordLiveBatch is only used in live mode.');
+		const hasPasskey = await ctx.runQuery(internal.deposits.authorizeLive, {
+			sessionToken: a.sessionToken,
+			requestId: a.requestId
+		});
 		return confirmLive(ctx, a.requestId, a.txHash, hasPasskey ? 'passkey' : 'demo');
 	}
 });

@@ -28,7 +28,11 @@ const fmtDate = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 // Scheduling (details 14.3). One tracked job per container; the daily sweep is the backstop.
 // ---------------------------------------------------------------------------
 
-export async function scheduleNextJob(ctx: MutationCtx, containerId: Id<'containers'>, now: number): Promise<void> {
+export async function scheduleNextJob(
+	ctx: MutationCtx,
+	containerId: Id<'containers'>,
+	now: number
+): Promise<void> {
 	const c = await ctx.db.get(containerId);
 	if (!c) return;
 	if (c.scheduledJobId) {
@@ -39,20 +43,37 @@ export async function scheduleNextJob(ctx: MutationCtx, containerId: Id<'contain
 		}
 	}
 	const offset = await clockOffset(ctx);
+	// A step that keeps failing (RPC down, refused pull) must not re-run in a tight loop: back off.
+	const attempts = c.pendingOnChain?.attempts ?? 0;
+	const when = (target: number): number => {
+		const at = schedulerTime(target, offset);
+		if (attempts === 0) return at;
+		return Math.max(at, Date.now() + Math.min(attempts * 5 * 60_000, 6 * 3_600_000));
+	};
 	let jobId: Id<'_scheduled_functions'> | undefined;
 	if ((c.state === 'released' || c.state === 'in_free_time') && c.freeTimeEndsAt !== undefined) {
-		jobId = await ctx.scheduler.runAt(schedulerTime(c.freeTimeEndsAt, offset), internal.lifecycle.onFreeTimeEnd, {
+		jobId = await ctx.scheduler.runAt(when(c.freeTimeEndsAt), internal.lifecycle.onFreeTimeEnd, {
 			containerId
 		});
-	} else if (c.state === 'in_detention' && c.returnedAt === undefined && c.freeTimeEndsAt !== undefined) {
+	} else if (
+		c.state === 'in_detention' &&
+		c.returnedAt === undefined &&
+		c.freeTimeEndsAt !== undefined
+	) {
 		if (c.detentionDays < c.maxDetentionDays) {
 			const due = detentionDayDueAt(c.freeTimeEndsAt, c.detentionDays + 1);
-			jobId = await ctx.scheduler.runAt(schedulerTime(due, offset), internal.lifecycle.dailyDetention, { containerId });
+			jobId = await ctx.scheduler.runAt(when(due), internal.lifecycle.dailyDetention, {
+				containerId
+			});
 		}
 	} else if (c.state === 'returned' && c.settlementWindowEndsAt !== undefined) {
-		jobId = await ctx.scheduler.runAt(schedulerTime(c.settlementWindowEndsAt, offset), internal.lifecycle.onWindowEnd, {
-			containerId
-		});
+		jobId = await ctx.scheduler.runAt(
+			when(c.settlementWindowEndsAt),
+			internal.lifecycle.onWindowEnd,
+			{
+				containerId
+			}
+		);
 	}
 	await ctx.db.patch(containerId, { scheduledJobId: jobId ? String(jobId) : undefined });
 	void now;
@@ -64,7 +85,12 @@ export async function scheduleNextJob(ctx: MutationCtx, containerId: Id<'contain
 
 export interface ReleaseResult {
 	released: Id<'containers'>[];
-	blocked: { containerId: Id<'containers'>; number: string; reason: string; missingUnits?: string }[];
+	blocked: {
+		containerId: Id<'containers'>;
+		number: string;
+		reason: string;
+		missingUnits?: string;
+	}[];
 }
 
 export async function releaseRequestContainers(
@@ -82,10 +108,18 @@ export async function releaseRequestContainers(
 	const result: ReleaseResult = { released: [], blocked: [] };
 	for (const c of containers) {
 		if (c.state === 'deposit_held' || c.state === 'authorized') {
-			let cur = await setState(ctx, c, 'released', now, { releasedAt: now });
+			const cur = await setState(ctx, c, 'released', now, { releasedAt: now });
 			const end = computeFreeTimeEnd(now, c.freeDays);
-			cur = await setState(ctx, cur, 'in_free_time', now, { freeTimeEndsAt: end });
-			await logEvent(ctx, c._id, 'released', 'Release order issued', now, `Issued by ${actor}.`, actor);
+			await setState(ctx, cur, 'in_free_time', now, { freeTimeEndsAt: end });
+			await logEvent(
+				ctx,
+				c._id,
+				'released',
+				'Release order issued',
+				now,
+				`Issued by ${actor}.`,
+				actor
+			);
 			await logEvent(
 				ctx,
 				c._id,
@@ -116,7 +150,11 @@ export async function releaseRequestContainers(
 				missingUnits: missing.toString()
 			});
 		} else if (c.state === 'requested') {
-			result.blocked.push({ containerId: c._id, number: c.number, reason: 'Waiting for the importer to authorize the access key.' });
+			result.blocked.push({
+				containerId: c._id,
+				number: c.number,
+				reason: 'Waiting for the importer to authorize the access key.'
+			});
 		}
 	}
 	void request;
@@ -124,14 +162,21 @@ export async function releaseRequestContainers(
 	return result;
 }
 
-export async function scheduleKeyExpiryWarning(ctx: MutationCtx, containerId: Id<'containers'>): Promise<void> {
+export async function scheduleKeyExpiryWarning(
+	ctx: MutationCtx,
+	containerId: Id<'containers'>
+): Promise<void> {
 	const key = await ctx.db
 		.query('accessKeys')
 		.withIndex('by_container', (q) => q.eq('containerId', containerId))
 		.first();
 	if (!key || key.status !== 'active') return;
 	const offset = await clockOffset(ctx);
-	await ctx.scheduler.runAt(schedulerTime(key.expiry - DAY_MS, offset), internal.lifecycle.keyExpiryWarning, { containerId });
+	await ctx.scheduler.runAt(
+		schedulerTime(key.expiry - DAY_MS, offset),
+		internal.lifecycle.keyExpiryWarning,
+		{ containerId }
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -159,11 +204,20 @@ export type DetentionStep =
  * that needs an access-key pull and return it for the action to execute.
  * Idempotent: `detentionDays` is the count of days already processed.
  */
-export async function detentionStepOp(ctx: MutationCtx, containerId: Id<'containers'>, now: number): Promise<DetentionStep> {
+export async function detentionStepOp(
+	ctx: MutationCtx,
+	containerId: Id<'containers'>,
+	now: number
+): Promise<DetentionStep> {
 	let c = await ctx.db.get(containerId);
 	if (!c || c.freeTimeEndsAt === undefined) return { kind: 'done' };
 	const freeEnd: number = c.freeTimeEndsAt;
-	const live: Doc<'containers'>['state'][] = ['released', 'in_free_time', 'in_detention', 'returned'];
+	const live: Doc<'containers'>['state'][] = [
+		'released',
+		'in_free_time',
+		'in_detention',
+		'returned'
+	];
 	if (!live.includes(c.state)) return { kind: 'done' };
 	// Held containers have their accrual settled by the rules at return time.
 	if (c.state === 'returned' && c.mode === 'held') return { kind: 'done' };
@@ -205,7 +259,7 @@ export async function detentionStepOp(ctx: MutationCtx, containerId: Id<'contain
 	const rate = u(c.dailyRateUnits);
 	const deposit = u(c.depositUnits);
 	let day = c.detentionDays;
-	let pulled = u(c.pulledUnits);
+	const pulled = u(c.pulledUnits);
 	let accruedNow = u(c.accruedUnits);
 	const request = await ctx.db.get(c.requestId);
 	const line = await ctx.db.get(c.lineOrgId);
@@ -253,7 +307,11 @@ export async function detentionStepOp(ctx: MutationCtx, containerId: Id<'contain
 		day = next;
 	}
 	if (day !== c.detentionDays || c.pendingOnChain) {
-		await ctx.db.patch(c._id, { detentionDays: day, accruedUnits: accruedNow.toString(), pendingOnChain: undefined });
+		await ctx.db.patch(c._id, {
+			detentionDays: day,
+			accruedUnits: accruedNow.toString(),
+			pendingOnChain: undefined
+		});
 	}
 	return { kind: 'done' };
 }
@@ -284,7 +342,11 @@ export async function pullResultOp(
 	if (c.detentionDays >= a.day) return { retry: false, advanced: false }; // already processed: exactly once
 	const rate = u(c.dailyRateUnits);
 	const deposit = u(c.depositUnits);
-	const accruedUnits = accrued({ days: a.day, dailyRateUnits: rate, depositUnits: deposit }).toString();
+	const accruedUnits = accrued({
+		days: a.day,
+		dailyRateUnits: rate,
+		depositUnits: deposit
+	}).toString();
 	const key = c.accessKeyId ? await ctx.db.get(c.accessKeyId) : null;
 	const base = {
 		containerId: c._id,
@@ -318,7 +380,14 @@ export async function pullResultOp(
 			accruedUnits,
 			pendingOnChain: undefined
 		});
-		await logEvent(ctx, c._id, 'detention_pull', `Detention pulled for day ${a.day}`, tx.timestamp, `${formatUsd(u(a.amountUnits))} via the access key. ${a.memo}`);
+		await logEvent(
+			ctx,
+			c._id,
+			'detention_pull',
+			`Detention pulled for day ${a.day}`,
+			tx.timestamp,
+			`${formatUsd(u(a.amountUnits))} via the access key. ${a.memo}`
+		);
 		await notify(ctx, {
 			orgId: c.importerOrgId,
 			kind: 'detention_pull',
@@ -339,12 +408,16 @@ export async function pullResultOp(
 			finalityMs: 0,
 			timestamp: a.now,
 			status: 'failed',
-			error: err.name === 'SpendingLimitExceeded' ? 'SpendingLimitExceeded' : `${err.name}: ${err.message}`
+			error:
+				err.name === 'SpendingLimitExceeded'
+					? 'SpendingLimitExceeded'
+					: `${err.name}: ${err.message}`
 		});
 	const terminal = ['KeyAlreadyRevoked', 'KeyExpired', 'CallNotAllowed', 'KeyNotFound'];
 	if (terminal.includes(err.name) || err.name === 'InsufficientBalance') {
 		await failedRow();
-		if (key && terminal.includes(err.name)) await ctx.db.patch(key._id, { unusableReason: err.name });
+		if (key && terminal.includes(err.name))
+			await ctx.db.patch(key._id, { unusableReason: err.name });
 		await ctx.db.patch(c._id, { detentionDays: a.day, accruedUnits, pendingOnChain: undefined });
 		const why =
 			err.name === 'KeyAlreadyRevoked'
@@ -405,15 +478,20 @@ export async function recordReturnOp(
 ): Promise<Doc<'containers'>> {
 	const c0 = await ctx.db.get(containerId);
 	if (!c0) throw appError('NOT_FOUND', 'Container not found.');
-	if (c0.returnReceipt && c0.state !== 'returned') throw appError('INVALID_STATE', 'A return receipt is already recorded.');
+	if (c0.returnReceipt && c0.state !== 'returned')
+		throw appError('INVALID_STATE', 'A return receipt is already recorded.');
 	if (!['released', 'in_free_time', 'in_detention'].includes(c0.state)) {
-		throw appError('INVALID_STATE', `A return cannot be recorded while the container is "${c0.state.replace('_', ' ')}".`);
+		throw appError(
+			'INVALID_STATE',
+			`A return cannot be recorded while the container is "${c0.state.replace('_', ' ')}".`
+		);
 	}
 	const eir = input.eirNumber.trim();
 	if (!eir) throw appError('INVALID', 'Enter the return receipt (EIR) number.');
 	if (!input.depot.trim()) throw appError('INVALID', 'Enter the depot.');
 	if (!Number.isFinite(input.date)) throw appError('INVALID', 'Enter a valid return date.');
-	if (input.date > now + 60_000) throw appError('INVALID', 'The return date cannot be in the future.');
+	if (input.date > now + 60_000)
+		throw appError('INVALID', 'The return date cannot be in the future.');
 	if (c0.releasedAt !== undefined && input.date < c0.releasedAt) {
 		throw appError('INVALID', 'The return date is before the container was released.');
 	}
@@ -421,7 +499,10 @@ export async function recordReturnOp(
 	if (c0.mode === 'depositFree' && c0.freeTimeEndsAt !== undefined && c0.detentionDays > 0) {
 		const lastPullStart = detentionDayDueAt(c0.freeTimeEndsAt, c0.detentionDays);
 		if (returnedAt < lastPullStart) {
-			throw appError('INVALID', 'The return date is earlier than a detention day that was already pulled.');
+			throw appError(
+				'INVALID',
+				'The return date is earlier than a detention day that was already pulled.'
+			);
 		}
 	}
 	let c = c0;
@@ -433,10 +514,19 @@ export async function recordReturnOp(
 	const days =
 		c.freeTimeEndsAt === undefined
 			? 0
-			: detentionDaysAt({ freeTimeEndsAt: c.freeTimeEndsAt, maxDetentionDays: c.maxDetentionDays, returnedAt }, now);
+			: detentionDaysAt(
+					{ freeTimeEndsAt: c.freeTimeEndsAt, maxDetentionDays: c.maxDetentionDays, returnedAt },
+					now
+				);
 	const patch: Partial<Doc<'containers'>> = {
 		returnedAt,
-		returnReceipt: { eirNumber: eir, date: returnedAt, depot: input.depot.trim(), submittedBy: by, recordedAt: now },
+		returnReceipt: {
+			eirNumber: eir,
+			date: returnedAt,
+			depot: input.depot.trim(),
+			submittedBy: by,
+			recordedAt: now
+		},
 		settlementWindowEndsAt: windowEnd
 	};
 	if (c.mode === 'held') {
@@ -448,7 +538,10 @@ export async function recordReturnOp(
 		}).toString();
 	}
 	c = await setState(ctx, c, 'returned', now, patch);
-	const owed = days === 0 ? 'No detention is owed.' : `${days} detention day${days === 1 ? '' : 's'} at ${formatUsd(u(c.dailyRateUnits))}.`;
+	const owed =
+		days === 0
+			? 'No detention is owed.'
+			: `${days} detention day${days === 1 ? '' : 's'} at ${formatUsd(u(c.dailyRateUnits))}.`;
 	await logEvent(
 		ctx,
 		c._id,
@@ -501,21 +594,36 @@ export async function checkSilentLine(
 }
 
 /** The line contests an importer-submitted receipt inside the window: back to the previous state. */
-export async function contestReturnOp(ctx: MutationCtx, c: Doc<'containers'>, note: string, now: number, actor: string): Promise<void> {
+export async function contestReturnOp(
+	ctx: MutationCtx,
+	c: Doc<'containers'>,
+	note: string,
+	now: number,
+	actor: string
+): Promise<void> {
 	const receipt = c.returnReceipt;
 	if (!receipt || receipt.submittedBy !== 'importer') {
-		throw appError('INVALID_STATE', 'Only a return receipt submitted by the importer can be contested.');
+		throw appError(
+			'INVALID_STATE',
+			'Only a return receipt submitted by the importer can be contested.'
+		);
 	}
-	if (c.state !== 'returned') throw appError('INVALID_STATE', 'This return can no longer be contested.');
+	if (c.state !== 'returned')
+		throw appError('INVALID_STATE', 'This return can no longer be contested.');
 	if (c.settlementWindowEndsAt !== undefined && now >= c.settlementWindowEndsAt) {
 		throw appError('WINDOW_CLOSED', 'The window to contest this receipt has closed.');
 	}
 	const back =
-		c.freeTimeEndsAt !== undefined && now >= c.freeTimeEndsAt ? ('in_detention' as const) : ('in_free_time' as const);
+		c.freeTimeEndsAt !== undefined && now >= c.freeTimeEndsAt
+			? ('in_detention' as const)
+			: ('in_free_time' as const);
 	const days =
 		c.freeTimeEndsAt === undefined
 			? 0
-			: detentionDaysAt({ freeTimeEndsAt: c.freeTimeEndsAt, maxDetentionDays: c.maxDetentionDays }, now);
+			: detentionDaysAt(
+					{ freeTimeEndsAt: c.freeTimeEndsAt, maxDetentionDays: c.maxDetentionDays },
+					now
+				);
 	await setState(ctx, c, back, now, {
 		returnedAt: undefined,
 		returnReceipt: undefined,
@@ -523,15 +631,29 @@ export async function contestReturnOp(ctx: MutationCtx, c: Doc<'containers'>, no
 		detentionDays: c.mode === 'held' ? days : c.detentionDays,
 		accruedUnits:
 			c.mode === 'held'
-				? accrued({ days, dailyRateUnits: c.dailyRateUnits, depositUnits: c.depositUnits }).toString()
+				? accrued({
+						days,
+						dailyRateUnits: c.dailyRateUnits,
+						depositUnits: c.depositUnits
+					}).toString()
 				: c.accruedUnits
 	});
-	await logEvent(ctx, c._id, 'return_contested', 'Return receipt contested by the line', now, note || undefined, actor);
+	await logEvent(
+		ctx,
+		c._id,
+		'return_contested',
+		'Return receipt contested by the line',
+		now,
+		note || undefined,
+		actor
+	);
 	await notify(ctx, {
 		orgId: c.importerOrgId,
 		kind: 'return_contested',
 		title: `Return contested: ${c.number}`,
-		body: note ? `The line contests EIR ${receipt.eirNumber}: ${note}` : `The line contests EIR ${receipt.eirNumber}.`,
+		body: note
+			? `The line contests EIR ${receipt.eirNumber}: ${note}`
+			: `The line contests EIR ${receipt.eirNumber}.`,
 		containerId: c._id,
 		at: now
 	});

@@ -5,10 +5,22 @@
  */
 import { v } from 'convex/values';
 import { internalMutation, internalQuery } from './_generated/server';
-import { ChainError, SpendingLimitExceededError, type HeldReceiptJson, type TxResultJson } from '../lib/shared/tempo/adapter';
+import {
+	ChainError,
+	SpendingLimitExceededError,
+	type HeldReceiptJson,
+	type TxResultJson
+} from '../lib/shared/tempo/adapter';
 import type { SimLeg } from '../lib/shared/tempo/sim';
 import { ALPHA_USD } from '../lib/shared/domain/constants';
-import { getSimChain, makeSimStore, registerSimMaster, simFaucet, simTxJson, ensureSimMeta } from './simStore';
+import {
+	getSimChain,
+	makeSimStore,
+	registerSimMaster,
+	simFaucet,
+	simTxJson,
+	ensureSimMeta
+} from './simStore';
 import type { Hex } from '../lib/shared/tempo/adapter';
 
 export type SimError = {
@@ -58,7 +70,11 @@ export const transferBatch = internalMutation({
 			const r = await chain.transferBatch({
 				from: a.from,
 				token: a.token ?? ALPHA_USD,
-				calls: a.calls.map((c) => ({ to: c.to, amount: BigInt(c.amountUnits), memo: c.memo as Hex | undefined })),
+				calls: a.calls.map((c) => ({
+					to: c.to,
+					amount: BigInt(c.amountUnits),
+					memo: c.memo as Hex | undefined
+				})),
 				at: a.at
 			});
 			return { ok: true, tx: simTxJson(r.tx), held: r.held };
@@ -112,7 +128,9 @@ export const pull = internalMutation({
 	handler: async (
 		ctx,
 		a
-	): Promise<{ ok: true; tx: TxResultJson; remainingUnits: string; periodEnd: number } | SimFail> => {
+	): Promise<
+		{ ok: true; tx: TxResultJson; remainingUnits: string; periodEnd: number } | SimFail
+	> => {
 		const chain = await getSimChain(ctx);
 		try {
 			const r = await chain.pull({
@@ -124,7 +142,12 @@ export const pull = internalMutation({
 				memo: a.memo as Hex,
 				at: a.at
 			});
-			return { ok: true, tx: simTxJson(r.tx), remainingUnits: r.remainingUnits, periodEnd: r.periodEnd };
+			return {
+				ok: true,
+				tx: simTxJson(r.tx),
+				remainingUnits: r.remainingUnits,
+				periodEnd: r.periodEnd
+			};
 		} catch (e) {
 			return toSimError(e);
 		}
@@ -149,7 +172,8 @@ export const keyState = internalQuery({
 	handler: async (ctx, a) => {
 		const store = makeSimStore(ctx.db as never);
 		const key = await store.getKey(a.account, a.keyId);
-		if (!key) return { exists: false, remainingUnits: '0', periodEnd: 0, expiry: 0, isRevoked: false };
+		if (!key)
+			return { exists: false, remainingUnits: '0', periodEnd: 0, expiry: 0, isRevoked: false };
 		const meta = await ctx.db.query('sim_meta').first();
 		const at = a.at ?? Date.now() + (meta?.clockOffsetMs ?? 0);
 		let remaining = BigInt(key.remaining);
@@ -231,7 +255,12 @@ export const settle = internalMutation({
 });
 
 export const resolveDispute = internalMutation({
-	args: { receiptId: v.string(), toLineUnits: v.string(), memo: v.string(), at: v.optional(v.number()) },
+	args: {
+		receiptId: v.string(),
+		toLineUnits: v.string(),
+		memo: v.string(),
+		at: v.optional(v.number())
+	},
 	handler: async (ctx, a): Promise<{ ok: true; tx: TxResultJson; legs: SimLeg[] } | SimFail> => {
 		const chain = await getSimChain(ctx);
 		try {
@@ -253,7 +282,11 @@ export const returnToSender = internalMutation({
 	handler: async (ctx, a): Promise<{ ok: true; tx: TxResultJson; legs: SimLeg[] } | SimFail> => {
 		const chain = await getSimChain(ctx);
 		try {
-			const r = await chain.returnToSender({ receiptId: a.receiptId, memo: a.memo as Hex, at: a.at });
+			const r = await chain.returnToSender({
+				receiptId: a.receiptId,
+				memo: a.memo as Hex,
+				at: a.at
+			});
 			return { ok: true, tx: simTxJson(r.tx), legs: r.legs };
 		} catch (e) {
 			return toSimError(e);

@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import { action, internalMutation, internalQuery, query } from './_generated/server';
-import { appError, loadContainerFor, productNow, requireImporter, requireSession } from './helpers';
+import { appError, loadContainerFor, productNow, requireSession } from './helpers';
 import { chainResolveDispute } from './chain';
 import { beginResolveOp, finishResolveOp, type ResolvePlan } from './opsSettlement';
 import { executeSettlements, throwIfNotDone, type SettleOutcome } from './settlement';
@@ -29,7 +29,8 @@ export const open = action({
 			containerId: a.containerId
 		});
 		const reason = a.reason.trim();
-		if (reason.length < 3) throw appError('INVALID', 'Tell the resolver why you dispute the charge.');
+		if (reason.length < 3)
+			throw appError('INVALID', 'Tell the resolver why you dispute the charge.');
 		if (!/^\d+$/.test(a.disputedUnits)) throw appError('INVALID', 'Enter the disputed amount.');
 		const [o] = await executeSettlements(ctx, {
 			containerIds: [a.containerId],
@@ -52,7 +53,9 @@ export const markOpened = internalMutation({
 		if (!c) return null;
 		const rel = await ctx.db
 			.query('relationships')
-			.withIndex('by_pair', (q) => q.eq('lineOrgId', c.lineOrgId).eq('importerOrgId', c.importerOrgId))
+			.withIndex('by_pair', (q) =>
+				q.eq('lineOrgId', c.lineOrgId).eq('importerOrgId', c.importerOrgId)
+			)
 			.unique();
 		if (rel) await ctx.db.patch(rel._id, { disputes: rel.disputes + 1 });
 		return null;
@@ -65,7 +68,8 @@ export const resolvePlan = internalQuery({
 		const s = await requireSession(ctx, a.sessionToken);
 		const d = await ctx.db.get(a.disputeId);
 		if (!d) throw appError('NOT_FOUND', 'Dispute not found.');
-		if (d.resolverOrgId !== s.org._id) throw appError('FORBIDDEN', 'Only the agreed resolver can decide this dispute.');
+		if (d.resolverOrgId !== s.org._id)
+			throw appError('FORBIDDEN', 'Only the agreed resolver can decide this dispute.');
 		if (d.status !== 'open') throw appError('INVALID_STATE', 'This dispute is already resolved.');
 		return { actor: s.user.name, userId: s.user._id };
 	}
@@ -73,11 +77,18 @@ export const resolvePlan = internalQuery({
 
 export const beginResolve = internalMutation({
 	args: { disputeId: v.id('disputes'), toLineUnits: v.string(), note: v.string() },
-	handler: async (ctx, a): Promise<ResolvePlan> => beginResolveOp(ctx, { ...a, now: await productNow(ctx) })
+	handler: async (ctx, a): Promise<ResolvePlan> =>
+		beginResolveOp(ctx, { ...a, now: await productNow(ctx) })
 });
 
 export const finishResolve = internalMutation({
-	args: { plan: v.any(), txs: v.any(), decidedBy: v.id('users'), note: v.string(), actor: v.string() },
+	args: {
+		plan: v.any(),
+		txs: v.any(),
+		decidedBy: v.id('users'),
+		note: v.string(),
+		actor: v.string()
+	},
 	handler: async (ctx, a): Promise<null> => {
 		await finishResolveOp(ctx, a.plan as ResolvePlan, {
 			txs: a.txs as { receiptId: string; tx: TxResultJson; legs: SimLeg[] }[],
@@ -95,11 +106,21 @@ export const finishResolve = internalMutation({
  * and the importer. `toLineUnits` is the part of the disputed amount that goes to the line.
  */
 export const resolve = action({
-	args: { sessionToken: v.string(), disputeId: v.id('disputes'), toLineUnits: v.string(), note: v.string() },
+	args: {
+		sessionToken: v.string(),
+		disputeId: v.id('disputes'),
+		toLineUnits: v.string(),
+		note: v.string()
+	},
 	handler: async (
 		ctx,
 		a
-	): Promise<{ disputeId: Id<'disputes'>; toLineUnits: string; toImporterUnits: string; txHashes: string[] }> => {
+	): Promise<{
+		disputeId: Id<'disputes'>;
+		toLineUnits: string;
+		toImporterUnits: string;
+		txHashes: string[];
+	}> => {
 		const { actor, userId } = await ctx.runQuery(internal.disputes.resolvePlan, {
 			sessionToken: a.sessionToken,
 			disputeId: a.disputeId
@@ -122,7 +143,13 @@ export const resolve = action({
 			if (!res.ok) throw appError('CHAIN_ERROR', res.error.message, { name: res.error.name });
 			txs.push({ receiptId: item.receiptId, tx: res.tx, legs: res.legs });
 		}
-		await ctx.runMutation(internal.disputes.finishResolve, { plan, txs, decidedBy: userId, note, actor });
+		await ctx.runMutation(internal.disputes.finishResolve, {
+			plan,
+			txs,
+			decidedBy: userId,
+			note,
+			actor
+		});
 		return {
 			disputeId: a.disputeId,
 			toLineUnits: plan.toLineUnits,
@@ -133,7 +160,10 @@ export const resolve = action({
 });
 
 export const list = query({
-	args: { sessionToken: v.string(), status: v.optional(v.union(v.literal('open'), v.literal('resolved'))) },
+	args: {
+		sessionToken: v.string(),
+		status: v.optional(v.union(v.literal('open'), v.literal('resolved')))
+	},
 	handler: async (ctx, a) => {
 		const s = await requireSession(ctx, a.sessionToken);
 		const statuses: ('open' | 'resolved')[] = a.status ? [a.status] : ['open', 'resolved'];
@@ -148,11 +178,15 @@ export const list = query({
 					: s.org.kind === 'importer'
 						? await ctx.db
 								.query('disputes')
-								.withIndex('by_importer_status', (q) => q.eq('importerOrgId', s.org._id).eq('status', st))
+								.withIndex('by_importer_status', (q) =>
+									q.eq('importerOrgId', s.org._id).eq('status', st)
+								)
 								.collect()
 						: await ctx.db
 								.query('disputes')
-								.withIndex('by_resolver_status', (q) => q.eq('resolverOrgId', s.org._id).eq('status', st))
+								.withIndex('by_resolver_status', (q) =>
+									q.eq('resolverOrgId', s.org._id).eq('status', st)
+								)
 								.collect();
 			rows = rows.concat(part);
 		}
@@ -187,7 +221,8 @@ export const get = query({
 		const s = await requireSession(ctx, a.sessionToken);
 		const d = await ctx.db.get(a.disputeId);
 		if (!d) return null;
-		if (d.resolverOrgId !== s.org._id && d.lineOrgId !== s.org._id && d.importerOrgId !== s.org._id) return null;
+		if (d.resolverOrgId !== s.org._id && d.lineOrgId !== s.org._id && d.importerOrgId !== s.org._id)
+			return null;
 		const c = await loadContainerFor(ctx, s, d.containerId);
 		const payments = await ctx.db
 			.query('payments')
@@ -195,8 +230,23 @@ export const get = query({
 			.collect();
 		return {
 			dispute: { ...d, receiptEscrows: undefined },
-			container: { _id: c._id, number: c.number, type: c.type, chargesUnits: c.chargesUnits ?? '0', refundUnits: c.refundUnits ?? '0', state: c.state },
-			payments: payments.filter((p) => ['charge', 'refund', 'dispute_release', 'deposit'].includes(p.kind)).map((p) => ({ kind: p.kind, amountUnits: p.amountUnits, memo: p.memo, timestamp: p.timestamp, txHash: p.txHash })),
+			container: {
+				_id: c._id,
+				number: c.number,
+				type: c.type,
+				chargesUnits: c.chargesUnits ?? '0',
+				refundUnits: c.refundUnits ?? '0',
+				state: c.state
+			},
+			payments: payments
+				.filter((p) => ['charge', 'refund', 'dispute_release', 'deposit'].includes(p.kind))
+				.map((p) => ({
+					kind: p.kind,
+					amountUnits: p.amountUnits,
+					memo: p.memo,
+					timestamp: p.timestamp,
+					txHash: p.txHash
+				})),
 			escrowUnits: d.status === 'open' ? d.disputedUnits : '0',
 			disputedUnits: u(d.disputedUnits).toString()
 		};

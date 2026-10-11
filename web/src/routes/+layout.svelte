@@ -3,9 +3,13 @@
 	import '#lib/ui/global.css';
 	import favicon from '#lib/assets/favicon.svg';
 	import { Toaster } from '#lib/ui';
+	import { setupBackend } from '#lib/backend';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
+
+	// Starts the in-browser Convex runtime (local mode) or connects to Convex (PUBLIC_CONVEX_URL).
+	setupBackend();
 </script>
 
 <svelte:head>

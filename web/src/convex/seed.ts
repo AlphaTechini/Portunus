@@ -9,21 +9,31 @@
 import { internalMutation, mutation } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
-import { simAddress } from './helpers';
+import { chainMode, simAddress } from './helpers';
 import { getSimChain, simTxJson, ensureSimMeta } from './simStore';
 import { insertDefaultRateCards, provisionLine, fundSimImporter } from './orgSetup';
 import { createReleaseRequest } from './opsRequests';
 import { ingestReceipts } from './opsDeposits';
-import { detentionStepOp, pullResultOp, recordReturnOp, releaseRequestContainers, scheduleKeyExpiryWarning, scheduleNextJob } from './opsLifecycle';
+import {
+	detentionStepOp,
+	pullResultOp,
+	recordReturnOp,
+	releaseRequestContainers,
+	scheduleKeyExpiryWarning,
+	scheduleNextJob
+} from './opsLifecycle';
 import { insertPreparedKey, recordKeyAuthorizedOp, recordKeyRevokedOp } from './opsKeys';
-import { beginSettlementOp, finishDepositFreeSettlementOp, finishHeldSettlementOp } from './opsSettlement';
+import {
+	beginSettlementOp,
+	finishDepositFreeSettlementOp,
+	finishHeldSettlementOp
+} from './opsSettlement';
 import { logEvent, notify } from './helpers';
 import type { SimChain } from '../lib/shared/tempo/sim';
 import { ALPHA_USD, BETA_USD, DAY_MS, HOUR_MS } from '../lib/shared/domain/constants';
 import { generateContainerNumber } from '../lib/shared/domain/containerNumber';
 import { depositMemo, encodeMemo, type Hex } from '../lib/shared/domain/memo';
 import { toUnits, formatUsd, u } from '../lib/shared/domain/money';
-import { DEFAULT_RATE_CARDS } from './orgSetup';
 
 type Org = Doc<'organizations'>;
 type User = Doc<'users'>;
@@ -68,7 +78,13 @@ export async function seedWorld(ctx: MutationCtx): Promise<{ containers: number 
 		blurb: 'Default dispute resolver for lines and importers who both agreed to it at onboarding.',
 		createdAt: T0 - 90 * DAY_MS
 	});
-	const mkLine = async (name: string, shortCode: string, country: string, prefix: string, blurb: string) => {
+	const mkLine = async (
+		name: string,
+		shortCode: string,
+		country: string,
+		prefix: string,
+		blurb: string
+	) => {
 		const id = await ctx.db.insert('organizations', {
 			kind: 'line',
 			name,
@@ -84,8 +100,20 @@ export async function seedWorld(ctx: MutationCtx): Promise<{ containers: number 
 		await provisionLine(ctx, id, T0 - 90 * DAY_MS);
 		return id;
 	};
-	const meridianId = await mkLine('Meridian Ocean Lines', 'MRDN', 'Nigeria', 'MRDU', 'Carrier with a Lagos (Apapa) import desk.');
-	const kestrelId = await mkLine('Kestrel Container Line', 'KSTL', 'Kenya', 'KSTU', 'Carrier with a Mombasa import desk.');
+	const meridianId = await mkLine(
+		'Meridian Ocean Lines',
+		'MRDN',
+		'Nigeria',
+		'MRDU',
+		'Carrier with a Lagos (Apapa) import desk.'
+	);
+	const kestrelId = await mkLine(
+		'Kestrel Container Line',
+		'KSTL',
+		'Kenya',
+		'KSTU',
+		'Carrier with a Mombasa import desk.'
+	);
 	await insertDefaultRateCards(ctx, meridianId);
 	const kestrelCards: [CType, number, string, string][] = [
 		['20GP', 5, '40.00', '1000.00'],
@@ -117,9 +145,24 @@ export async function seedWorld(ctx: MutationCtx): Promise<{ containers: number 
 		await fundSimImporter(ctx, address);
 		return id;
 	};
-	const harbourviewId = await mkImporter('Harbourview Foods Ltd', 'HRBV', 'Nigeria', 'Food importer in Lagos. New to the platform.');
-	const savannaId = await mkImporter('Savanna Agro Traders', 'SVNA', 'Kenya', 'Agro trader in Mombasa with a clean record.');
-	const pasigId = await mkImporter('Pasig Valley Imports', 'PSGV', 'Philippines', 'Importer in Manila.');
+	const harbourviewId = await mkImporter(
+		'Harbourview Foods Ltd',
+		'HRBV',
+		'Nigeria',
+		'Food importer in Lagos. New to the platform.'
+	);
+	const savannaId = await mkImporter(
+		'Savanna Agro Traders',
+		'SVNA',
+		'Kenya',
+		'Agro trader in Mombasa with a clean record.'
+	);
+	const pasigId = await mkImporter(
+		'Pasig Valley Imports',
+		'PSGV',
+		'Philippines',
+		'Importer in Manila.'
+	);
 
 	const orgs = async (id: Id<'organizations'>) => (await ctx.db.get(id))!;
 	const meridian = await orgs(meridianId);
@@ -138,16 +181,73 @@ export async function seedWorld(ctx: MutationCtx): Promise<{ containers: number 
 		blurb: string,
 		email: string
 	) => {
-		const id = await ctx.db.insert('users', { orgId, name, role, title, blurb, email, demo: true, createdAt: T0 - 80 * DAY_MS });
+		const id = await ctx.db.insert('users', {
+			orgId,
+			name,
+			role,
+			title,
+			blurb,
+			email,
+			demo: true,
+			createdAt: T0 - 80 * DAY_MS
+		});
 		return [key, (await ctx.db.get(id))!] as const;
 	};
 	const users = Object.fromEntries([
-		await mkUser('adaeze', meridianId, 'line', 'Adaeze Okafor', 'Import Desk Lead, Lagos (Apapa)', 'Creates release requests, records returns and posts charges for Meridian Ocean Lines.', 'adaeze@meridian.example'),
-		await mkUser('joseph', kestrelId, 'line', 'Joseph Otieno', 'Import Desk Agent, Mombasa', 'Runs the Kestrel Container Line import desk.', 'joseph@kestrel.example'),
-		await mkUser('tunde', harbourviewId, 'importer', 'Tunde Bakare', 'Clearing agent', 'Acts for Harbourview Foods. Has a three-container request waiting for payment.', 'tunde@harbourview.example'),
-		await mkUser('wanjiru', savannaId, 'importer', 'Wanjiru Mwangi', 'Operations lead', 'Six clean returns, so lines offer deposit-free release. Has a request waiting for authorization.', 'wanjiru@savanna.example'),
-		await mkUser('carlo', pasigId, 'importer', 'Carlo Reyes', 'Customs broker', 'Pays held deposits. One charge is currently in dispute.', 'carlo@pasig.example'),
-		await mkUser('desk', platformId, 'platform', 'Resolution Desk', 'Dispute resolver', 'Decides disputes both sides agreed to bring to the platform.', 'desk@portunus.example')
+		await mkUser(
+			'adaeze',
+			meridianId,
+			'line',
+			'Adaeze Okafor',
+			'Import Desk Lead, Lagos (Apapa)',
+			'Creates release requests, records returns and posts charges for Meridian Ocean Lines.',
+			'adaeze@meridian.example'
+		),
+		await mkUser(
+			'joseph',
+			kestrelId,
+			'line',
+			'Joseph Otieno',
+			'Import Desk Agent, Mombasa',
+			'Runs the Kestrel Container Line import desk.',
+			'joseph@kestrel.example'
+		),
+		await mkUser(
+			'tunde',
+			harbourviewId,
+			'importer',
+			'Tunde Bakare',
+			'Clearing agent',
+			'Acts for Harbourview Foods. Has a three-container request waiting for payment.',
+			'tunde@harbourview.example'
+		),
+		await mkUser(
+			'wanjiru',
+			savannaId,
+			'importer',
+			'Wanjiru Mwangi',
+			'Operations lead',
+			'Six clean returns, so lines offer deposit-free release. Has a request waiting for authorization.',
+			'wanjiru@savanna.example'
+		),
+		await mkUser(
+			'carlo',
+			pasigId,
+			'importer',
+			'Carlo Reyes',
+			'Customs broker',
+			'Pays held deposits. One charge is currently in dispute.',
+			'carlo@pasig.example'
+		),
+		await mkUser(
+			'desk',
+			platformId,
+			'platform',
+			'Resolution Desk',
+			'Dispute resolver',
+			'Decides disputes both sides agreed to bring to the platform.',
+			'desk@portunus.example'
+		)
 	]) as Record<string, User>;
 
 	const w: World = {
@@ -166,7 +266,14 @@ export async function seedWorld(ctx: MutationCtx): Promise<{ containers: number 
 	let count = 0;
 
 	// --- 14 settled containers over ~60 days ----------------------------------------------
-	type Hist = { line: Org; imp: Org; mode: 'held' | 'depositFree'; type: CType; age: number; late: number };
+	type Hist = {
+		line: Org;
+		imp: Org;
+		mode: 'held' | 'depositFree';
+		type: CType;
+		age: number;
+		late: number;
+	};
 	const hist: Hist[] = [
 		{ line: meridian, imp: savanna, mode: 'held', type: '20GP', age: 57, late: 0 },
 		{ line: meridian, imp: savanna, mode: 'held', type: '40GP', age: 47, late: 0 },
@@ -199,14 +306,63 @@ export async function seedWorld(ctx: MutationCtx): Promise<{ containers: number 
 	// --- currently active ----------------------------------------------------------------
 	const active: Parameters<typeof runContainer>[2][] = [
 		// 3 in free time
-		{ line: meridian, imp: harbourview, mode: 'held', type: '40GP', createdAt: T0 - 2.3 * DAY_MS, releaseAt: T0 - 2 * DAY_MS, stage: 'free_time' },
-		{ line: meridian, imp: pasig, mode: 'held', type: '20GP', createdAt: T0 - 4.2 * DAY_MS, releaseAt: T0 - 4 * DAY_MS, stage: 'free_time' },
-		{ line: meridian, imp: savanna, mode: 'depositFree', type: '40HC', createdAt: T0 - 1.7 * DAY_MS, releaseAt: T0 - 1.5 * DAY_MS, stage: 'free_time' },
+		{
+			line: meridian,
+			imp: harbourview,
+			mode: 'held',
+			type: '40GP',
+			createdAt: T0 - 2.3 * DAY_MS,
+			releaseAt: T0 - 2 * DAY_MS,
+			stage: 'free_time'
+		},
+		{
+			line: meridian,
+			imp: pasig,
+			mode: 'held',
+			type: '20GP',
+			createdAt: T0 - 4.2 * DAY_MS,
+			releaseAt: T0 - 4 * DAY_MS,
+			stage: 'free_time'
+		},
+		{
+			line: meridian,
+			imp: savanna,
+			mode: 'depositFree',
+			type: '40HC',
+			createdAt: T0 - 1.7 * DAY_MS,
+			releaseAt: T0 - 1.5 * DAY_MS,
+			stage: 'free_time'
+		},
 		// 2 in detention (one held, one deposit-free with pulls)
-		{ line: meridian, imp: pasig, mode: 'held', type: '40GP', createdAt: T0 - 10 * DAY_MS, releaseAt: T0 - 9.6 * DAY_MS, stage: 'detention' },
-		{ line: meridian, imp: savanna, mode: 'depositFree', type: '20GP', createdAt: T0 - 9.9 * DAY_MS, releaseAt: T0 - 9.4 * DAY_MS, stage: 'detention' },
+		{
+			line: meridian,
+			imp: pasig,
+			mode: 'held',
+			type: '40GP',
+			createdAt: T0 - 10 * DAY_MS,
+			releaseAt: T0 - 9.6 * DAY_MS,
+			stage: 'detention'
+		},
+		{
+			line: meridian,
+			imp: savanna,
+			mode: 'depositFree',
+			type: '20GP',
+			createdAt: T0 - 9.9 * DAY_MS,
+			releaseAt: T0 - 9.4 * DAY_MS,
+			stage: 'detention'
+		},
 		// 1 returned, waiting for the settlement window
-		{ line: meridian, imp: harbourview, mode: 'held', type: '40HC', createdAt: T0 - 8.6 * DAY_MS, releaseAt: T0 - 8.2 * DAY_MS, returnAt: T0 - 1 * DAY_MS, stage: 'returned' },
+		{
+			line: meridian,
+			imp: harbourview,
+			mode: 'held',
+			type: '40HC',
+			createdAt: T0 - 8.6 * DAY_MS,
+			releaseAt: T0 - 8.2 * DAY_MS,
+			returnAt: T0 - 1 * DAY_MS,
+			stage: 'returned'
+		},
 		// 1 disputed
 		{
 			line: meridian,
@@ -218,7 +374,11 @@ export async function seedWorld(ctx: MutationCtx): Promise<{ containers: number 
 			returnAt: T0 - 4.7 * DAY_MS,
 			damage: '400.00',
 			damageNote: 'Door seal torn on return inspection',
-			dispute: { at: T0 - 3.5 * DAY_MS, units: '500.00', reason: 'The seal damage was already noted on the pickup inspection. Photos attached.' },
+			dispute: {
+				at: T0 - 3.5 * DAY_MS,
+				units: '500.00',
+				reason: 'The seal damage was already noted on the pickup inspection. Photos attached.'
+			},
 			stage: 'disputed'
 		}
 	];
@@ -239,7 +399,10 @@ export async function seedWorld(ctx: MutationCtx): Promise<{ containers: number 
 		voyage: '041E',
 		portOfDischarge: 'Apapa, Lagos',
 		mode: 'held',
-		containers: (['40GP', '40GP', '20GP'] as CType[]).map((type) => ({ number: nextNumber(w, meridian), type })),
+		containers: (['40GP', '40GP', '20GP'] as CType[]).map((type) => ({
+			number: nextNumber(w, meridian),
+			type
+		})),
 		now: T0 - 35 * MIN
 	});
 	// A deposit-free request waiting for Savanna's authorization.
@@ -253,7 +416,10 @@ export async function seedWorld(ctx: MutationCtx): Promise<{ containers: number 
 		voyage: '112W',
 		portOfDischarge: 'Apapa, Lagos',
 		mode: 'depositFree',
-		containers: (['20GP', '40GP'] as CType[]).map((type) => ({ number: nextNumber(w, meridian), type })),
+		containers: (['20GP', '40GP'] as CType[]).map((type) => ({
+			number: nextNumber(w, meridian),
+			type
+		})),
 		now: T0 - 2 * HOUR_MS
 	});
 	count += 5;
@@ -266,24 +432,47 @@ export async function seedWorld(ctx: MutationCtx): Promise<{ containers: number 
 	const wrongToken = await chain.transferBatch({
 		from: stranger,
 		token: BETA_USD,
-		calls: [{ to: firstWaiting!.depositAddress, amount: toUnits('250.00'), memo: encodeMemo(`PD ${firstWaiting!.number} WRONGTOKEN`) }],
+		calls: [
+			{
+				to: firstWaiting!.depositAddress,
+				amount: toUnits('250.00'),
+				memo: encodeMemo(`PD ${firstWaiting!.number} WRONGTOKEN`)
+			}
+		],
 		at: T0 - 2 * HOUR_MS
 	});
-	await ingestReceipts(ctx, wrongToken.held, { mode: 'sim', finalityMs: wrongToken.tx.finalityMs, now: T0 - 2 * HOUR_MS, blockNumber: String(wrongToken.tx.blockNumber) });
+	await ingestReceipts(ctx, wrongToken.held, {
+		mode: 'sim',
+		finalityMs: wrongToken.tx.finalityMs,
+		now: T0 - 2 * HOUR_MS,
+		blockNumber: String(wrongToken.tx.blockNumber)
+	});
 	const unknown = await chain.transferBatch({
 		from: stranger,
 		token: ALPHA_USD,
-		calls: [{ to: meridian.depositsAccount!, amount: toUnits('175.00'), memo: encodeMemo('PAYMENT REF 88213') }],
+		calls: [
+			{
+				to: meridian.depositsAccount!,
+				amount: toUnits('175.00'),
+				memo: encodeMemo('PAYMENT REF 88213')
+			}
+		],
 		at: T0 - 5 * HOUR_MS
 	});
-	await ingestReceipts(ctx, unknown.held, { mode: 'sim', finalityMs: unknown.tx.finalityMs, now: T0 - 5 * HOUR_MS, blockNumber: String(unknown.tx.blockNumber) });
+	await ingestReceipts(ctx, unknown.held, {
+		mode: 'sim',
+		finalityMs: unknown.tx.finalityMs,
+		now: T0 - 5 * HOUR_MS,
+		blockNumber: String(unknown.tx.blockNumber)
+	});
 
 	// --- schedule the live jobs for what is still running ---------------------------------
 	const running = await ctx.db.query('containers').collect();
 	for (const c of running) {
 		if (['in_free_time', 'in_detention', 'returned'].includes(c.state)) {
 			await scheduleNextJob(ctx, c._id, T0);
-			if (c.mode === 'depositFree' && c.state !== 'returned') await scheduleKeyExpiryWarning(ctx, c._id);
+			if (c.mode === 'depositFree' && c.state !== 'returned')
+				await scheduleKeyExpiryWarning(ctx, c._id);
 		}
 	}
 	// Old notifications are read; the last day's stay unread.
@@ -320,9 +509,14 @@ interface Spec {
 	dispute?: { at: number; units: string; reason: string };
 }
 
-const lineUserFor = (w: World, line: Org): User => (line.shortCode === 'KSTL' ? w.users.joseph : w.users.adaeze);
+const lineUserFor = (w: World, line: Org): User =>
+	line.shortCode === 'KSTL' ? w.users.joseph : w.users.adaeze;
 const impUserFor = (w: World, imp: Org): User =>
-	imp.shortCode === 'HRBV' ? w.users.tunde : imp.shortCode === 'SVNA' ? w.users.wanjiru : w.users.carlo;
+	imp.shortCode === 'HRBV'
+		? w.users.tunde
+		: imp.shortCode === 'SVNA'
+			? w.users.wanjiru
+			: w.users.carlo;
 
 /** Run one container through the real operations up to `spec.stage`, with explicit past timestamps. */
 async function runContainer(ctx: MutationCtx, w: World, spec: Spec): Promise<Id<'containers'>> {
@@ -331,16 +525,6 @@ async function runContainer(ctx: MutationCtx, w: World, spec: Spec): Promise<Id<
 	const impUser = impUserFor(w, spec.imp);
 	const bl = nextBl(w, spec.line);
 	const number = nextNumber(w, spec.line);
-	const card = DEFAULT_RATE_CARDS.find((c) => c.containerType === spec.type)!;
-	void card;
-	const freeDaysFor = async (): Promise<number> => {
-		const c = await ctx.db
-			.query('rateCards')
-			.withIndex('by_line_type', (q) => q.eq('lineOrgId', spec.line._id).eq('containerType', spec.type))
-			.first();
-		return c!.freeDays;
-	};
-	const freeDays = await freeDaysFor();
 	const jitter = (min: number, spanMin: number) => (min + Math.floor(w.rand() * spanMin)) * MIN;
 
 	const tCreate = spec.createdAt;
@@ -365,13 +549,33 @@ async function runContainer(ctx: MutationCtx, w: World, spec: Spec): Promise<Id<
 		const res = await chain.transferBatch({
 			from: payer,
 			token: ALPHA_USD,
-			calls: [{ to: container.depositAddress, amount: u(container.depositUnits), memo: encodeMemo(depositMemo(number, bl)) as Hex }],
+			calls: [
+				{
+					to: container.depositAddress,
+					amount: u(container.depositUnits),
+					memo: encodeMemo(depositMemo(number, bl)) as Hex
+				}
+			],
 			at: tCover
 		});
-		await ingestReceipts(ctx, res.held, { mode: 'sim', finalityMs: res.tx.finalityMs, now: tCover, blockNumber: String(res.tx.blockNumber), approvedWith: 'demo' });
+		await ingestReceipts(ctx, res.held, {
+			mode: 'sim',
+			finalityMs: res.tx.finalityMs,
+			now: tCover,
+			blockNumber: String(res.tx.blockNumber),
+			approvedWith: 'demo'
+		});
 	} else {
 		const keyAddress = `0x${Array.from({ length: 40 }, () => Math.floor(w.rand() * 16).toString(16)).join('')}`;
-		const keyId = await insertPreparedKey(ctx, { container, line: spec.line, account: payer, keyAddress, encPrivKey: 'sim:seed', mode: 'sim', now: tCover });
+		const keyId = await insertPreparedKey(ctx, {
+			container,
+			line: spec.line,
+			account: payer,
+			keyAddress,
+			encPrivKey: 'sim:seed',
+			mode: 'sim',
+			now: tCover
+		});
 		const key = (await ctx.db.get(keyId))!;
 		const auth = await chain.authorizeKey({
 			account: payer,
@@ -383,11 +587,19 @@ async function runContainer(ctx: MutationCtx, w: World, spec: Spec): Promise<Id<
 			expiry: key.expiry,
 			at: tCover
 		});
-		await recordKeyAuthorizedOp(ctx, { keyId, tx: simTxJson(auth.tx), now: tCover, approvedWith: 'demo', actor: impUser.name });
+		await recordKeyAuthorizedOp(ctx, {
+			keyId,
+			tx: simTxJson(auth.tx),
+			now: tCover,
+			approvedWith: 'demo',
+			actor: impUser.name
+		});
 	}
 
 	const tRelease = spec.releaseAt ?? tCover + jitter(20, 60);
-	await releaseRequestContainers(ctx, created.requestId, tRelease, lineUser.name, { schedule: false });
+	await releaseRequestContainers(ctx, created.requestId, tRelease, lineUser.name, {
+		schedule: false
+	});
 	container = (await ctx.db.get(containerId))!;
 	const F = container.freeTimeEndsAt!;
 
@@ -428,12 +640,19 @@ async function runContainer(ctx: MutationCtx, w: World, spec: Spec): Promise<Id<
 	// Return of the empty.
 	const lateDays = spec.lateDays ?? 0;
 	const tReturn =
-		spec.returnAt ?? (lateDays > 0 ? F + (lateDays - 1) * DAY_MS + 0.4 * DAY_MS : F - Math.floor((1 + w.rand() * 2) * DAY_MS));
+		spec.returnAt ??
+		(lateDays > 0
+			? F + (lateDays - 1) * DAY_MS + 0.4 * DAY_MS
+			: F - Math.floor((1 + w.rand() * 2) * DAY_MS));
 	await processDetention(tReturn);
 	await recordReturnOp(
 		ctx,
 		containerId,
-		{ eirNumber: `EIR-${spec.line.shortCode}-${(700000 + Math.floor(w.rand() * 99999)).toString()}`, date: tReturn, depot: spec.line.shortCode === 'KSTL' ? 'Mombasa Container Terminal depot' : 'Apapa Yard 3' },
+		{
+			eirNumber: `EIR-${spec.line.shortCode}-${(700000 + Math.floor(w.rand() * 99999)).toString()}`,
+			date: tReturn,
+			depot: spec.line.shortCode === 'KSTL' ? 'Mombasa Container Terminal depot' : 'Apapa Yard 3'
+		},
 		'line',
 		tReturn,
 		lineUser.name,
@@ -441,7 +660,13 @@ async function runContainer(ctx: MutationCtx, w: World, spec: Spec): Promise<Id<
 	);
 	if (spec.stage === 'returned') return containerId;
 
-	const settleOnce = async (opts: { now: number; source: 'line' | 'dispute'; damage?: string; note?: string; disputed?: string }) => {
+	const settleOnce = async (opts: {
+		now: number;
+		source: 'line' | 'dispute';
+		damage?: string;
+		note?: string;
+		disputed?: string;
+	}) => {
 		const plan = await beginSettlementOp(ctx, {
 			containerId,
 			now: opts.now,
@@ -449,7 +674,9 @@ async function runContainer(ctx: MutationCtx, w: World, spec: Spec): Promise<Id<
 			damageUnits: opts.damage,
 			note: opts.note,
 			disputedUnits: opts.disputed,
-			dispute: opts.disputed ? { openedBy: impUser._id, reason: spec.dispute?.reason ?? '' } : undefined,
+			dispute: opts.disputed
+				? { openedBy: impUser._id, reason: spec.dispute?.reason ?? '' }
+				: undefined,
 			actor: opts.source === 'dispute' ? impUser.name : lineUser.name
 		});
 		if (plan.mode === 'held') {
@@ -463,12 +690,28 @@ async function runContainer(ctx: MutationCtx, w: World, spec: Spec): Promise<Id<
 				})),
 				at: opts.now
 			});
-			await finishHeldSettlementOp(ctx, plan, { tx: simTxJson(r.tx), legs: r.legs, now: opts.now, actor: lineUser.name });
+			await finishHeldSettlementOp(ctx, plan, {
+				tx: simTxJson(r.tx),
+				legs: r.legs,
+				now: opts.now,
+				actor: lineUser.name
+			});
 		} else {
 			const df = plan.depositFree!;
 			const rv = await chain.revokeKey({ account: df.account, keyId: df.keyAddress, at: opts.now });
-			await finishDepositFreeSettlementOp(ctx, plan, { now: opts.now, actor: lineUser.name, revokeTx: simTxJson(rv.tx), revokePending: false });
-			await recordKeyRevokedOp(ctx, { keyId: df.keyId, tx: simTxJson(rv.tx), now: opts.now, by: 'settlement', actor: lineUser.name });
+			await finishDepositFreeSettlementOp(ctx, plan, {
+				now: opts.now,
+				actor: lineUser.name,
+				revokeTx: simTxJson(rv.tx),
+				revokePending: false
+			});
+			await recordKeyRevokedOp(ctx, {
+				keyId: df.keyId,
+				tx: simTxJson(rv.tx),
+				now: opts.now,
+				by: 'settlement',
+				actor: lineUser.name
+			});
 		}
 	};
 
@@ -480,8 +723,20 @@ async function runContainer(ctx: MutationCtx, w: World, spec: Spec): Promise<Id<
 
 	// Disputed: the line posted damage, the importer disputed part of it inside the window.
 	const damage = u(toUnits(spec.damage ?? '0'));
-	await ctx.db.patch(containerId, { damageUnits: damage.toString(), chargeNote: spec.damageNote, chargesPostedAt: tReturn + 2 * HOUR_MS });
-	await logEvent(ctx, containerId, 'charges_posted', 'Final charges posted', tReturn + 2 * HOUR_MS, `Damage ${formatUsd(damage)}: ${spec.damageNote ?? ''}`, lineUser.name);
+	await ctx.db.patch(containerId, {
+		damageUnits: damage.toString(),
+		chargeNote: spec.damageNote,
+		chargesPostedAt: tReturn + 2 * HOUR_MS
+	});
+	await logEvent(
+		ctx,
+		containerId,
+		'charges_posted',
+		'Final charges posted',
+		tReturn + 2 * HOUR_MS,
+		`Damage ${formatUsd(damage)}: ${spec.damageNote ?? ''}`,
+		lineUser.name
+	);
 	await notify(ctx, {
 		orgId: spec.imp._id,
 		kind: 'charges_posted',
@@ -500,12 +755,41 @@ async function runContainer(ctx: MutationCtx, w: World, spec: Spec): Promise<Id<
 	return containerId;
 }
 
+/**
+ * Live mode has no fake chain history: only the platform resolver org and its desk persona exist
+ * so that new lines can name a resolver. Everything else is created through the product.
+ */
+async function seedLive(ctx: MutationCtx): Promise<void> {
+	const T0 = Date.now();
+	const platformId = await ctx.db.insert('organizations', {
+		kind: 'platform',
+		name: 'Portunus Resolution Desk',
+		shortCode: 'PRTN',
+		country: 'Global',
+		blurb: 'Default dispute resolver for lines and importers who both agreed to it at onboarding.',
+		createdAt: T0
+	});
+	await ctx.db.insert('users', {
+		orgId: platformId,
+		name: 'Resolution Desk',
+		role: 'platform',
+		title: 'Dispute resolver',
+		demo: true,
+		email: 'desk@portunus.example',
+		createdAt: T0
+	});
+}
+
 /** Public, idempotent: seeds the demo world if the database has no organizations. */
 export const ensure = mutation({
 	args: {},
 	handler: async (ctx): Promise<{ seeded: boolean; containers?: number }> => {
 		const existing = await ctx.db.query('organizations').first();
 		if (existing) return { seeded: false };
+		if (chainMode() === 'live') {
+			await seedLive(ctx);
+			return { seeded: true, containers: 0 };
+		}
 		const r = await seedWorld(ctx);
 		return { seeded: true, containers: r.containers };
 	}

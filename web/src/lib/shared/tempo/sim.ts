@@ -17,12 +17,7 @@ import { ReceivePolicyReceipt } from 'viem/tempo';
 import { isVirtualAddress, parseVirtualAddress } from '../domain/virtualAddress';
 import { RECEIVE_POLICY_GUARD } from '../domain/constants';
 import { decodeMemo } from '../domain/memo';
-import {
-	ChainError,
-	SpendingLimitExceededError,
-	type Hex,
-	type HeldReceiptJson
-} from './adapter';
+import { ChainError, SpendingLimitExceededError, type Hex, type HeldReceiptJson } from './adapter';
 
 export interface SimMeta {
 	seq: number;
@@ -137,7 +132,9 @@ export function stableJson(value: unknown): string {
 	return JSON.stringify(value, (_k, v) => {
 		if (typeof v === 'bigint') return v.toString();
 		if (v && typeof v === 'object' && !Array.isArray(v)) {
-			return Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1)));
+			return Object.fromEntries(
+				Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1))
+			);
 		}
 		return v;
 	});
@@ -180,7 +177,11 @@ export class SimChain {
 
 	// ---- transactions --------------------------------------------------
 
-	private async beginTx(method: string, args: unknown, at: number | undefined): Promise<{ tx: SimTx; log: TxLog }> {
+	private async beginTx(
+		method: string,
+		args: unknown,
+		at: number | undefined
+	): Promise<{ tx: SimTx; log: TxLog }> {
 		const meta = await this.store.getMeta();
 		const seq = meta.seq + 1;
 		const block = meta.block + 1;
@@ -248,7 +249,8 @@ export class SimChain {
 		if (a.calls.length === 0) throw new ChainError('InvalidAmount', 'Empty batch');
 		let required = 0n;
 		for (const c of a.calls) {
-			if (c.amount <= 0n) throw new ChainError('InvalidAmount', 'Transfer amount must be greater than zero');
+			if (c.amount <= 0n)
+				throw new ChainError('InvalidAmount', 'Transfer amount must be greater than zero');
 			required += c.amount;
 		}
 		const available = await this.store.getBalance(from, token);
@@ -260,13 +262,19 @@ export class SimChain {
 			);
 		}
 		// Resolve every destination before applying anything.
-		const masters = await Promise.all(a.calls.map((c) => this.store.findMasterForAddress(lc(c.to))));
+		const masters = await Promise.all(
+			a.calls.map((c) => this.store.findMasterForAddress(lc(c.to)))
+		);
 
-		const { tx, log } = await this.beginTx(a.method ?? 'transferBatch', {
-			from,
-			token,
-			calls: a.calls.map((c) => ({ to: lc(c.to), amount: c.amount, memo: c.memo ?? null }))
-		}, a.at);
+		const { tx, log } = await this.beginTx(
+			a.method ?? 'transferBatch',
+			{
+				from,
+				token,
+				calls: a.calls.map((c) => ({ to: lc(c.to), amount: c.amount, memo: c.memo ?? null }))
+			},
+			a.at
+		);
 		const held: HeldReceiptJson[] = [];
 		for (let i = 0; i < a.calls.length; i++) {
 			const c = a.calls[i];
@@ -275,7 +283,14 @@ export class SimChain {
 			await this.debit(from, token, c.amount);
 			if (!master) {
 				await log.emit('Transfer', { token, from, to, amount: c.amount.toString() });
-				if (c.memo) await log.emit('TransferWithMemo', { token, from, to, amount: c.amount.toString(), memo: c.memo });
+				if (c.memo)
+					await log.emit('TransferWithMemo', {
+						token,
+						from,
+						to,
+						amount: c.amount.toString(),
+						memo: c.memo
+					});
 				await this.credit(to, token, c.amount);
 				continue;
 			}
@@ -295,8 +310,20 @@ export class SimChain {
 				memo
 			});
 			const id = receiptIdOf(receipt);
-			await log.emit('Transfer', { token, from, to: lc(RECEIVE_POLICY_GUARD), amount: c.amount.toString() });
-			if (c.memo) await log.emit('TransferWithMemo', { token, from, to, amount: c.amount.toString(), memo: c.memo });
+			await log.emit('Transfer', {
+				token,
+				from,
+				to: lc(RECEIVE_POLICY_GUARD),
+				amount: c.amount.toString()
+			});
+			if (c.memo)
+				await log.emit('TransferWithMemo', {
+					token,
+					from,
+					to,
+					amount: c.amount.toString(),
+					memo: c.memo
+				});
 			const logIndex = await log.emit('TransferBlocked', {
 				token,
 				receiver: master.account,
@@ -348,19 +375,25 @@ export class SimChain {
 		if (existing) {
 			throw new ChainError(
 				existing.revoked ? 'KeyAlreadyRevoked' : 'KeyAlreadyExists',
-				existing.revoked ? 'This key was revoked and can never be authorized again' : 'Key already authorized'
+				existing.revoked
+					? 'This key was revoked and can never be authorized again'
+					: 'Key already authorized'
 			);
 		}
 		if (a.expiry <= at) throw new ChainError('KeyExpired', 'Expiry must be in the future');
 		if (a.limit <= 0n) throw new ChainError('InvalidAmount', 'Limit must be greater than zero');
-		const { tx, log } = await this.beginTx('authorizeKey', {
-			account: lc(a.account),
-			keyId: lc(a.keyId),
-			limit: a.limit,
-			period: a.periodSec,
-			recipients: a.recipients.map(lc),
-			expiry: a.expiry
-		}, a.at);
+		const { tx, log } = await this.beginTx(
+			'authorizeKey',
+			{
+				account: lc(a.account),
+				keyId: lc(a.keyId),
+				limit: a.limit,
+				period: a.periodSec,
+				recipients: a.recipients.map(lc),
+				expiry: a.expiry
+			},
+			a.at
+		);
 		const key: SimKey = {
 			account: lc(a.account),
 			keyId: lc(a.keyId),
@@ -406,7 +439,8 @@ export class SimChain {
 		exists: boolean;
 	}> {
 		const key = await this.store.getKey(lc(a.account), lc(a.keyId));
-		if (!key) return { remainingUnits: '0', periodEnd: 0, expiry: 0, isRevoked: false, exists: false };
+		if (!key)
+			return { remainingUnits: '0', periodEnd: 0, expiry: 0, isRevoked: false, exists: false };
 		const r = SimChain.rolled(key, a.at ?? this.now());
 		return {
 			remainingUnits: r.remaining.toString(),
@@ -434,29 +468,41 @@ export class SimChain {
 		const account = lc(a.account);
 		const key = await this.store.getKey(account, lc(a.keyId));
 		if (!key) throw new ChainError('KeyNotFound', 'Access key not found for this account');
-		if (key.revoked) throw new ChainError('KeyAlreadyRevoked', 'The importer revoked this access key');
+		if (key.revoked)
+			throw new ChainError('KeyAlreadyRevoked', 'The importer revoked this access key');
 		if (at >= key.expiry) throw new ChainError('KeyExpired', 'The access key has expired');
 		if (lc(a.token) !== key.token || !key.recipients.includes(lc(a.to))) {
-			throw new ChainError('CallNotAllowed', 'The access key may only pay the line charges address');
+			throw new ChainError(
+				'CallNotAllowed',
+				'The access key may only pay the line charges address'
+			);
 		}
 		if (a.amount <= 0n) throw new ChainError('InvalidAmount', 'Amount must be greater than zero');
 		const r = SimChain.rolled(key, at);
 		if (a.amount > r.remaining) throw new SpendingLimitExceededError(r.remaining, r.periodEnd);
 		const balance = await this.store.getBalance(account, key.token);
 		if (balance < a.amount) {
-			throw new ChainError('InsufficientBalance', `Insufficient balance: ${balance} available, ${a.amount} required`, {
-				available: balance.toString(),
-				required: a.amount.toString(),
-				token: key.token
-			});
+			throw new ChainError(
+				'InsufficientBalance',
+				`Insufficient balance: ${balance} available, ${a.amount} required`,
+				{
+					available: balance.toString(),
+					required: a.amount.toString(),
+					token: key.token
+				}
+			);
 		}
-		const { tx, log } = await this.beginTx('pull', {
-			account,
-			keyId: key.keyId,
-			to: lc(a.to),
-			amount: a.amount,
-			memo: a.memo
-		}, a.at);
+		const { tx, log } = await this.beginTx(
+			'pull',
+			{
+				account,
+				keyId: key.keyId,
+				to: lc(a.to),
+				amount: a.amount,
+				memo: a.memo
+			},
+			a.at
+		);
 		const remaining = r.remaining - a.amount;
 		await this.store.putKey({ ...key, remaining: remaining.toString(), periodEnd: r.periodEnd });
 		await this.debit(account, key.token, a.amount);
@@ -468,7 +514,12 @@ export class SimChain {
 			amount: a.amount.toString(),
 			remainingLimit: remaining.toString()
 		});
-		await log.emit('Transfer', { token: key.token, from: account, to: lc(a.to), amount: a.amount.toString() });
+		await log.emit('Transfer', {
+			token: key.token,
+			from: account,
+			to: lc(a.to),
+			amount: a.amount.toString()
+		});
 		await log.emit('TransferWithMemo', {
 			token: key.token,
 			from: account,
@@ -484,7 +535,11 @@ export class SimChain {
 		const key = await this.store.getKey(lc(a.account), lc(a.keyId));
 		if (!key) throw new ChainError('KeyNotFound', 'Access key not found for this account');
 		if (key.revoked) throw new ChainError('KeyAlreadyRevoked', 'Key already revoked');
-		const { tx, log } = await this.beginTx('revokeKey', { account: key.account, keyId: key.keyId }, a.at);
+		const { tx, log } = await this.beginTx(
+			'revokeKey',
+			{ account: key.account, keyId: key.keyId },
+			a.at
+		);
 		await this.store.putKey({ ...key, revoked: true });
 		await log.emit('KeyRevoked', { account: key.account, publicKey: key.keyId });
 		return { tx };
@@ -502,37 +557,69 @@ export class SimChain {
 	 * the line's charges address, the disputed part stays in escrow, the rest returns to the payer.
 	 */
 	async settle(a: {
-		items: { receiptId: string; charge: bigint; disputed: bigint; chargeMemo: Hex; refundMemo: Hex }[];
+		items: {
+			receiptId: string;
+			charge: bigint;
+			disputed: bigint;
+			chargeMemo: Hex;
+			refundMemo: Hex;
+		}[];
 		at?: number;
 	}): Promise<{
 		tx: SimTx;
 		legs: SimLeg[];
-		results: { receiptId: string; chargedUnits: string; refundedUnits: string; escrowUnits: string }[];
+		results: {
+			receiptId: string;
+			chargedUnits: string;
+			refundedUnits: string;
+			escrowUnits: string;
+		}[];
 	}> {
 		if (a.items.length === 0) throw new ChainError('InvalidReceipt', 'Nothing to settle');
 		const seen = new Set<string>();
 		const loaded: { item: (typeof a.items)[number]; rec: SimReceipt; master: SimMaster }[] = [];
 		for (const item of a.items) {
-			if (seen.has(item.receiptId)) throw new ChainError('ReceiptAlreadySettled', 'Receipt appears twice in this batch');
+			if (seen.has(item.receiptId))
+				throw new ChainError('ReceiptAlreadySettled', 'Receipt appears twice in this batch');
 			seen.add(item.receiptId);
 			const rec = await this.store.getReceipt(item.receiptId);
 			if (!rec) throw new ChainError('InvalidReceipt', 'Unknown receipt');
-			if (rec.status !== 'held') throw new ChainError('ReceiptAlreadySettled', 'This receipt was already settled');
+			if (rec.status !== 'held')
+				throw new ChainError('ReceiptAlreadySettled', 'This receipt was already settled');
 			const master = await this.store.findMasterForAddress(rec.recipient);
 			if (!master || lc(master.settlement) !== lc(decodeReceipt(rec).recoveryAuthority)) {
-				throw new ChainError('InvalidReceipt', 'The settlement contract is not the recovery authority for this receipt');
+				throw new ChainError(
+					'InvalidReceipt',
+					'The settlement contract is not the recovery authority for this receipt'
+				);
 			}
 			if (lc(rec.token) !== lc(master.token)) {
-				throw new ChainError('WrongToken', 'Only the settlement token can be settled; return other tokens to the sender');
+				throw new ChainError(
+					'WrongToken',
+					'Only the settlement token can be settled; return other tokens to the sender'
+				);
 			}
-			if (item.charge < 0n || item.disputed < 0n || item.charge + item.disputed > BigInt(rec.amount)) {
+			if (
+				item.charge < 0n ||
+				item.disputed < 0n ||
+				item.charge + item.disputed > BigInt(rec.amount)
+			) {
 				throw new ChainError('ChargeExceedsAmount', 'charge + disputed exceeds the held amount');
 			}
 			loaded.push({ item, rec, master });
 		}
-		const { tx, log } = await this.beginTx('settle', a.items.map((i) => ({ ...i, charge: i.charge, disputed: i.disputed })), a.at);
+		const { tx, log } = await this.beginTx(
+			'settle',
+			a.items.map((i) => ({ ...i, charge: i.charge, disputed: i.disputed })),
+			a.at
+		);
 		const legs: SimLeg[] = [];
-		const results: { receiptId: string; chargedUnits: string; refundedUnits: string; escrowUnits: string }[] = [];
+		const results: {
+			receiptId: string;
+			chargedUnits: string;
+			refundedUnits: string;
+			escrowUnits: string;
+		}[] = [];
 		for (const { item, rec, master } of loaded) {
 			const amount = BigInt(rec.amount);
 			const refund = amount - item.charge - item.disputed;
@@ -549,7 +636,12 @@ export class SimChain {
 			});
 			if (item.charge > 0n) {
 				await this.credit(master.charges, rec.token, item.charge);
-				await log.emit('Transfer', { token: rec.token, from: master.settlement, to: master.charges, amount: item.charge.toString() });
+				await log.emit('Transfer', {
+					token: rec.token,
+					from: master.settlement,
+					to: master.charges,
+					amount: item.charge.toString()
+				});
 				const logIndex = await log.emit('TransferWithMemo', {
 					token: rec.token,
 					from: master.settlement,
@@ -557,11 +649,23 @@ export class SimChain {
 					amount: item.charge.toString(),
 					memo: item.chargeMemo
 				});
-				legs.push({ receiptId: rec.id, kind: 'charge', to: master.charges, amountUnits: item.charge.toString(), memo: item.chargeMemo, logIndex });
+				legs.push({
+					receiptId: rec.id,
+					kind: 'charge',
+					to: master.charges,
+					amountUnits: item.charge.toString(),
+					memo: item.chargeMemo,
+					logIndex
+				});
 			}
 			if (refund > 0n) {
 				await this.credit(rec.originator, rec.token, refund);
-				await log.emit('Transfer', { token: rec.token, from: master.settlement, to: rec.originator, amount: refund.toString() });
+				await log.emit('Transfer', {
+					token: rec.token,
+					from: master.settlement,
+					to: rec.originator,
+					amount: refund.toString()
+				});
 				const logIndex = await log.emit('TransferWithMemo', {
 					token: rec.token,
 					from: master.settlement,
@@ -569,7 +673,14 @@ export class SimChain {
 					amount: refund.toString(),
 					memo: item.refundMemo
 				});
-				legs.push({ receiptId: rec.id, kind: 'refund', to: rec.originator, amountUnits: refund.toString(), memo: item.refundMemo, logIndex });
+				legs.push({
+					receiptId: rec.id,
+					kind: 'refund',
+					to: rec.originator,
+					amountUnits: refund.toString(),
+					memo: item.refundMemo,
+					logIndex
+				});
 			}
 			await log.emit('Settled', {
 				id: rec.id,
@@ -606,27 +717,73 @@ export class SimChain {
 	}): Promise<{ tx: SimTx; legs: SimLeg[]; toLineUnits: string; toPayerUnits: string }> {
 		const rec = await this.store.getReceipt(a.receiptId);
 		if (!rec) throw new ChainError('InvalidReceipt', 'Unknown receipt');
-		if (rec.status !== 'disputed') throw new ChainError('NotDisputed', 'This receipt has no open dispute');
+		if (rec.status !== 'disputed')
+			throw new ChainError('NotDisputed', 'This receipt has no open dispute');
 		const escrow = BigInt(rec.escrow);
-		if (a.toLine < 0n || a.toLine > escrow) throw new ChainError('ChargeExceedsAmount', 'toLine exceeds the escrow');
+		if (a.toLine < 0n || a.toLine > escrow)
+			throw new ChainError('ChargeExceedsAmount', 'toLine exceeds the escrow');
 		const master = await this.store.findMasterForAddress(rec.recipient);
 		if (!master) throw new ChainError('InvalidReceipt', 'No deposits account for this receipt');
-		const { tx, log } = await this.beginTx('resolveDispute', { id: rec.id, toLine: a.toLine, memo: a.memo }, a.at);
+		const { tx, log } = await this.beginTx(
+			'resolveDispute',
+			{ id: rec.id, toLine: a.toLine, memo: a.memo },
+			a.at
+		);
 		const toPayer = escrow - a.toLine;
 		const legs: SimLeg[] = [];
 		if (a.toLine > 0n) {
 			await this.credit(master.charges, rec.token, a.toLine);
-			await log.emit('Transfer', { token: rec.token, from: master.settlement, to: master.charges, amount: a.toLine.toString() });
-			const logIndex = await log.emit('TransferWithMemo', { token: rec.token, from: master.settlement, to: master.charges, amount: a.toLine.toString(), memo: a.memo });
-			legs.push({ receiptId: rec.id, kind: 'dispute_release', to: master.charges, amountUnits: a.toLine.toString(), memo: a.memo, logIndex });
+			await log.emit('Transfer', {
+				token: rec.token,
+				from: master.settlement,
+				to: master.charges,
+				amount: a.toLine.toString()
+			});
+			const logIndex = await log.emit('TransferWithMemo', {
+				token: rec.token,
+				from: master.settlement,
+				to: master.charges,
+				amount: a.toLine.toString(),
+				memo: a.memo
+			});
+			legs.push({
+				receiptId: rec.id,
+				kind: 'dispute_release',
+				to: master.charges,
+				amountUnits: a.toLine.toString(),
+				memo: a.memo,
+				logIndex
+			});
 		}
 		if (toPayer > 0n) {
 			await this.credit(rec.originator, rec.token, toPayer);
-			await log.emit('Transfer', { token: rec.token, from: master.settlement, to: rec.originator, amount: toPayer.toString() });
-			const logIndex = await log.emit('TransferWithMemo', { token: rec.token, from: master.settlement, to: rec.originator, amount: toPayer.toString(), memo: a.memo });
-			legs.push({ receiptId: rec.id, kind: 'dispute_release', to: rec.originator, amountUnits: toPayer.toString(), memo: a.memo, logIndex });
+			await log.emit('Transfer', {
+				token: rec.token,
+				from: master.settlement,
+				to: rec.originator,
+				amount: toPayer.toString()
+			});
+			const logIndex = await log.emit('TransferWithMemo', {
+				token: rec.token,
+				from: master.settlement,
+				to: rec.originator,
+				amount: toPayer.toString(),
+				memo: a.memo
+			});
+			legs.push({
+				receiptId: rec.id,
+				kind: 'dispute_release',
+				to: rec.originator,
+				amountUnits: toPayer.toString(),
+				memo: a.memo,
+				logIndex
+			});
 		}
-		await log.emit('DisputeResolved', { id: rec.id, toLine: a.toLine.toString(), toPayer: toPayer.toString() });
+		await log.emit('DisputeResolved', {
+			id: rec.id,
+			toLine: a.toLine.toString(),
+			toPayer: toPayer.toString()
+		});
 		await this.store.putReceipt({
 			...rec,
 			status: 'settled',
@@ -638,10 +795,15 @@ export class SimChain {
 	}
 
 	/** Wrong token / unknown sender: the full receipt goes straight back to the originator. */
-	async returnToSender(a: { receiptId: string; memo: Hex; at?: number }): Promise<{ tx: SimTx; legs: SimLeg[] }> {
+	async returnToSender(a: {
+		receiptId: string;
+		memo: Hex;
+		at?: number;
+	}): Promise<{ tx: SimTx; legs: SimLeg[] }> {
 		const rec = await this.store.getReceipt(a.receiptId);
 		if (!rec) throw new ChainError('InvalidReceipt', 'Unknown receipt');
-		if (rec.status !== 'held') throw new ChainError('ReceiptAlreadySettled', 'This receipt was already settled or returned');
+		if (rec.status !== 'held')
+			throw new ChainError('ReceiptAlreadySettled', 'This receipt was already settled or returned');
 		const master = await this.store.findMasterForAddress(rec.recipient);
 		const { tx, log } = await this.beginTx('returnToSender', { id: rec.id }, a.at);
 		await this.credit(rec.originator, rec.token, BigInt(rec.amount));
@@ -656,11 +818,44 @@ export class SimChain {
 			to: rec.originator,
 			amount: rec.amount
 		});
-		await log.emit('Transfer', { token: rec.token, from: master?.settlement ?? rec.master, to: rec.originator, amount: rec.amount });
-		const logIndex = await log.emit('TransferWithMemo', { token: rec.token, from: master?.settlement ?? rec.master, to: rec.originator, amount: rec.amount, memo: a.memo });
-		await log.emit('Returned', { id: rec.id, originator: rec.originator, token: rec.token, amount: rec.amount });
-		await this.store.putReceipt({ ...rec, status: 'returned', refunded: rec.amount, settleTxHash: tx.txHash });
-		return { tx, legs: [{ receiptId: rec.id, kind: 'held_return', to: rec.originator, amountUnits: rec.amount, memo: a.memo, logIndex }] };
+		await log.emit('Transfer', {
+			token: rec.token,
+			from: master?.settlement ?? rec.master,
+			to: rec.originator,
+			amount: rec.amount
+		});
+		const logIndex = await log.emit('TransferWithMemo', {
+			token: rec.token,
+			from: master?.settlement ?? rec.master,
+			to: rec.originator,
+			amount: rec.amount,
+			memo: a.memo
+		});
+		await log.emit('Returned', {
+			id: rec.id,
+			originator: rec.originator,
+			token: rec.token,
+			amount: rec.amount
+		});
+		await this.store.putReceipt({
+			...rec,
+			status: 'returned',
+			refunded: rec.amount,
+			settleTxHash: tx.txHash
+		});
+		return {
+			tx,
+			legs: [
+				{
+					receiptId: rec.id,
+					kind: 'held_return',
+					to: rec.originator,
+					amountUnits: rec.amount,
+					memo: a.memo,
+					logIndex
+				}
+			]
+		};
 	}
 }
 
@@ -684,9 +879,17 @@ class TxLog {
 	}
 }
 
-function decodeReceipt(rec: SimReceipt): { recoveryAuthority: string; originator: string; recipient: string } {
+function decodeReceipt(rec: SimReceipt): {
+	recoveryAuthority: string;
+	originator: string;
+	recipient: string;
+} {
 	const d = ReceivePolicyReceipt.decode(rec.receipt as Hex);
-	return { recoveryAuthority: d.recoveryAuthority, originator: d.originator, recipient: d.recipient };
+	return {
+		recoveryAuthority: d.recoveryAuthority,
+		originator: d.originator,
+		recipient: d.recipient
+	};
 }
 
 /** True when `address` is a virtual address (so a master id lookup applies). */

@@ -41,7 +41,11 @@ export function detentionDayDueAt(freeTimeEnd: number, day: number): number {
 }
 
 /** Accrued detention against the deposit: days x daily rate, capped at the deposit. */
-export function accrued(args: { days: number; dailyRateUnits: UnitsLike; depositUnits: UnitsLike }): bigint {
+export function accrued(args: {
+	days: number;
+	dailyRateUnits: UnitsLike;
+	depositUnits: UnitsLike;
+}): bigint {
 	return minBig(BigInt(Math.max(0, args.days)) * u(args.dailyRateUnits), u(args.depositUnits));
 }
 
@@ -50,7 +54,11 @@ export function accruedAt(
 	c: DetentionClock & { dailyRateUnits: UnitsLike; depositUnits: UnitsLike },
 	now: number
 ): bigint {
-	return accrued({ days: detentionDaysAt(c, now), dailyRateUnits: c.dailyRateUnits, depositUnits: c.depositUnits });
+	return accrued({
+		days: detentionDaysAt(c, now),
+		dailyRateUnits: c.dailyRateUnits,
+		depositUnits: c.depositUnits
+	});
 }
 
 /** Final charges can never exceed the deposit, nor accrued detention plus the stated damage. */
@@ -91,7 +99,8 @@ export function settlementAmounts(args: {
 	const deposit = u(args.depositUnits);
 	const disputed = u(args.disputedUnits ?? 0);
 	const charge = minBig(maxCharge(args), held);
-	if (disputed < 0n || disputed > charge) throw new Error('Disputed amount must be between 0 and the charge');
+	if (disputed < 0n || disputed > charge)
+		throw new Error('Disputed amount must be between 0 and the charge');
 	return {
 		chargeUnits: charge,
 		toLineNowUnits: charge - disputed,
@@ -129,16 +138,23 @@ export function disputeSplit(args: { disputedUnits: UnitsLike; toLineUnits: Unit
 } {
 	const disputed = u(args.disputedUnits);
 	const toLine = u(args.toLineUnits);
-	if (toLine < 0n || toLine > disputed) throw new Error('Resolver amount must be between 0 and the disputed amount');
+	if (toLine < 0n || toLine > disputed)
+		throw new Error('Resolver amount must be between 0 and the disputed amount');
 	return { toLine, toImporter: disputed - toLine };
 }
 
-export function settlementWindowEnd(returnedAt: number, windowDays = DEFAULT_SETTLEMENT_WINDOW_DAYS): number {
+export function settlementWindowEnd(
+	returnedAt: number,
+	windowDays = DEFAULT_SETTLEMENT_WINDOW_DAYS
+): number {
 	return returnedAt + windowDays * DAY_MS;
 }
 
 /** Deposit-free access key expiry: end of free time plus the maximum detention days. */
-export function depositFreeExpiry(freeTimeEnd: number, maxDetentionDays = DEFAULT_MAX_DETENTION_DAYS): number {
+export function depositFreeExpiry(
+	freeTimeEnd: number,
+	maxDetentionDays = DEFAULT_MAX_DETENTION_DAYS
+): number {
 	return freeTimeEnd + maxDetentionDays * DAY_MS;
 }
 

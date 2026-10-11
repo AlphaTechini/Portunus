@@ -35,7 +35,8 @@ export function toUnits(input: string | number | bigint): bigint {
 	let s = typeof input === 'number' ? numberToPlain(input) : input.trim().replace(/[,_\s]/g, '');
 	s = s.replace(/^\$/, '');
 	const m = /^(-)?(\d+)?(?:\.(\d+))?$/.exec(s);
-	if (!m || (m[2] === undefined && m[3] === undefined)) throw new Error(`Invalid amount: "${input}"`);
+	if (!m || (m[2] === undefined && m[3] === undefined))
+		throw new Error(`Invalid amount: "${input}"`);
 	const [, neg, whole = '0', frac = ''] = m;
 	if (frac.length > DECIMALS) throw new Error(`Too many decimals (max ${DECIMALS}): "${input}"`);
 	const units = BigInt(whole) * ONE_USD + BigInt(frac.padEnd(DECIMALS, '0') || '0');
@@ -64,7 +65,10 @@ export function fromUnits(units: UnitsLike): string {
 }
 
 /** '$1,200.50'. Rounds half up to cents. */
-export function formatUsd(units: UnitsLike, opts: { symbol?: boolean; cents?: boolean } = {}): string {
+export function formatUsd(
+	units: UnitsLike,
+	opts: { symbol?: boolean; cents?: boolean } = {}
+): string {
 	const { symbol = true, cents = true } = opts;
 	const n = u(units);
 	const neg = n < 0n;

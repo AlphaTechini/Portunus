@@ -29,7 +29,11 @@ function toPublicKey(hex: string): { prefix: 4; x: bigint; y: bigint } {
  * Verify a WebAuthn assertion over `challenge` (a 0x-hex string, the exact bytes the browser
  * passed to navigator.credentials.get). Throws on malformed input, returns false on a bad signature.
  */
-export function verifyAssertion(args: { publicKeyHex: string; challenge: string; assertion: AssertionFields }): boolean {
+export function verifyAssertion(args: {
+	publicKeyHex: string;
+	challenge: string;
+	assertion: AssertionFields;
+}): boolean {
 	const { publicKeyHex, challenge, assertion } = args;
 	const rpId = env('PASSKEY_RP_ID');
 	const origins = env('PASSKEY_ORIGINS');
@@ -76,14 +80,24 @@ export function checkApproval(
 	expectedPayloadHash: string
 ): { approvedWith: 'passkey' | 'demo'; verified: boolean } {
 	const approvedWith = checkApprovalMethod(user, approval);
-	if (approval.payloadHash && approval.payloadHash.toLowerCase() !== expectedPayloadHash.toLowerCase()) {
-		throw appError('APPROVAL_REQUIRED', 'This request changed after you reviewed it. Review and approve again.');
+	if (
+		approval.payloadHash &&
+		approval.payloadHash.toLowerCase() !== expectedPayloadHash.toLowerCase()
+	) {
+		throw appError(
+			'APPROVAL_REQUIRED',
+			'This request changed after you reviewed it. Review and approve again.'
+		);
 	}
 	if (approvedWith === 'passkey' && approval.assertion && user.passkey) {
 		const a = approval.assertion as AssertionFields;
-		let ok = false;
+		let ok: boolean;
 		try {
-			ok = verifyAssertion({ publicKeyHex: user.passkey.publicKey, challenge: expectedPayloadHash, assertion: a });
+			ok = verifyAssertion({
+				publicKeyHex: user.passkey.publicKey,
+				challenge: expectedPayloadHash,
+				assertion: a
+			});
 		} catch {
 			ok = false;
 		}

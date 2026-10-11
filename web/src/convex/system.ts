@@ -1,6 +1,11 @@
 import { query } from './_generated/server';
 import { chainMode, clockOffset, demoEnabled, env } from './helpers';
-import { CHAIN_ID, CHAIN_NAME, EXPLORER_URL, SETTLEMENT_TOKEN } from '../lib/shared/domain/constants';
+import {
+	CHAIN_ID,
+	CHAIN_NAME,
+	EXPLORER_URL,
+	SETTLEMENT_TOKEN
+} from '../lib/shared/domain/constants';
 
 /** Public: chain mode, sim clock and network info. The backend mode (convex/local) is decided client side. */
 export const status = query({

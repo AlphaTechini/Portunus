@@ -64,7 +64,11 @@ export type ErrorCode =
 	| 'NOT_ELIGIBLE';
 
 /** User-facing error. `data` is `{ code, message, ...extra }`. */
-export function appError(code: ErrorCode, message: string, extra: Record<string, string | number | boolean> = {}) {
+export function appError(
+	code: ErrorCode,
+	message: string,
+	extra: Record<string, string | number | boolean> = {}
+) {
 	return new ConvexError({ code, message, ...extra });
 }
 
@@ -87,6 +91,9 @@ export async function productNow(ctx: { db: DatabaseReader }): Promise<number> {
 export function schedulerTime(targetProductTime: number, offsetMs: number): number {
 	return Math.max(Date.now(), targetProductTime - offsetMs);
 }
+
+/** ARCHITECTURE section 3 name for the product clock. */
+export const now = productNow;
 
 // ---------------------------------------------------------------------------
 // Randomness and ids
@@ -126,7 +133,10 @@ export interface SessionInfo {
 	org: Doc<'organizations'>;
 }
 
-export async function findSession(ctx: { db: DatabaseReader }, token: string | undefined): Promise<SessionInfo | null> {
+export async function findSession(
+	ctx: { db: DatabaseReader },
+	token: string | undefined
+): Promise<SessionInfo | null> {
 	if (!token) return null;
 	const session = await ctx.db
 		.query('sessions')
@@ -141,7 +151,10 @@ export async function findSession(ctx: { db: DatabaseReader }, token: string | u
 	return { session, user, org };
 }
 
-export async function requireSession(ctx: { db: DatabaseReader }, token: string | undefined): Promise<SessionInfo> {
+export async function requireSession(
+	ctx: { db: DatabaseReader },
+	token: string | undefined
+): Promise<SessionInfo> {
 	const s = await findSession(ctx, token);
 	if (!s) throw appError('UNAUTHENTICATED', 'Please sign in again.');
 	return s;
@@ -154,12 +167,16 @@ export async function requireRole(
 ): Promise<SessionInfo> {
 	const s = await requireSession(ctx, token);
 	if (s.org.kind !== role || s.user.role !== role) {
-		throw appError('FORBIDDEN', `This action is for ${role === 'line' ? 'shipping lines' : role === 'importer' ? 'importers' : 'the platform'}.`);
+		throw appError(
+			'FORBIDDEN',
+			`This action is for ${role === 'line' ? 'shipping lines' : role === 'importer' ? 'importers' : 'the platform'}.`
+		);
 	}
 	return s;
 }
 
-export const requireLine = (ctx: { db: DatabaseReader }, token: string | undefined) => requireRole(ctx, token, 'line');
+export const requireLine = (ctx: { db: DatabaseReader }, token: string | undefined) =>
+	requireRole(ctx, token, 'line');
 export const requireImporter = (ctx: { db: DatabaseReader }, token: string | undefined) =>
 	requireRole(ctx, token, 'importer');
 
@@ -208,7 +225,11 @@ export interface Approval {
 
 export function checkApprovalMethod(user: Doc<'users'>, approval: Approval): 'passkey' | 'demo' {
 	if (approval.method === 'passkey') {
-		if (!user.passkey) throw appError('APPROVAL_REQUIRED', 'This account has no passkey. Use the demo confirmation.');
+		if (!user.passkey)
+			throw appError(
+				'APPROVAL_REQUIRED',
+				'This account has no passkey. Use the demo confirmation.'
+			);
 		if (approval.credentialId && approval.credentialId !== user.passkey.credentialId) {
 			throw appError('APPROVAL_REQUIRED', 'That passkey does not belong to this account.');
 		}
@@ -270,7 +291,10 @@ export async function setState(
 	return { ...container, ...patch, state: to, stateChangedAt: at };
 }
 
-export async function getOrg(ctx: { db: DatabaseReader }, id: Id<'organizations'>): Promise<Doc<'organizations'>> {
+export async function getOrg(
+	ctx: { db: DatabaseReader },
+	id: Id<'organizations'>
+): Promise<Doc<'organizations'>> {
 	const o = await ctx.db.get(id);
 	if (!o) throw appError('NOT_FOUND', 'Organization not found.');
 	return o;
@@ -288,7 +312,10 @@ export async function getRelationship(
 }
 
 /** Addresses an importer organisation pays from: org address and every user passkey address. */
-export async function importerAddresses(ctx: { db: DatabaseReader }, org: Doc<'organizations'>): Promise<string[]> {
+export async function importerAddresses(
+	ctx: { db: DatabaseReader },
+	org: Doc<'organizations'>
+): Promise<string[]> {
 	const out = new Set<string>();
 	if (org.tempoAddress) out.add(lc(org.tempoAddress));
 	const users = await ctx.db

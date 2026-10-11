@@ -10,7 +10,10 @@ import type { SimLeg } from '../lib/shared/tempo/sim';
 
 /** Line: wrong-token / unknown-sender / excess payments sitting in the guard. */
 export const list = query({
-	args: { sessionToken: v.string(), status: v.optional(v.union(v.literal('held'), v.literal('returned'), v.literal('matched'))) },
+	args: {
+		sessionToken: v.string(),
+		status: v.optional(v.union(v.literal('held'), v.literal('returned'), v.literal('matched')))
+	},
 	handler: async (ctx, a) => {
 		const { org } = await requireLine(ctx, a.sessionToken);
 		const statuses = a.status ? [a.status] : (['held', 'returned', 'matched'] as const);
@@ -85,7 +88,10 @@ export const finishReturn = internalMutation({
 /** Line: send a held transfer back to its sender through the settlement contract. Never lost. */
 export const returnToSender = action({
 	args: { sessionToken: v.string(), heldTransferId: v.id('heldTransfers') },
-	handler: async (ctx, a): Promise<{ heldTransferId: Id<'heldTransfers'>; txHash: string; finalityMs: number }> => {
+	handler: async (
+		ctx,
+		a
+	): Promise<{ heldTransferId: Id<'heldTransfers'>; txHash: string; finalityMs: number }> => {
 		const plan = await ctx.runQuery(internal.heldTransfers.returnPlan, a);
 		const res = await chainReturnToSender(ctx, {
 			receiptId: plan.receiptId,
@@ -93,7 +99,15 @@ export const returnToSender = action({
 			memo: plan.memoHex
 		});
 		if (!res.ok) throw appError('CHAIN_ERROR', res.error.message, { name: res.error.name });
-		await ctx.runMutation(internal.heldTransfers.finishReturn, { plan, tx: res.tx, legs: res.legs });
-		return { heldTransferId: a.heldTransferId, txHash: res.tx.txHash, finalityMs: res.tx.finalityMs };
+		await ctx.runMutation(internal.heldTransfers.finishReturn, {
+			plan,
+			tx: res.tx,
+			legs: res.legs
+		});
+		return {
+			heldTransferId: a.heldTransferId,
+			txHash: res.tx.txHash,
+			finalityMs: res.tx.finalityMs
+		};
 	}
 });

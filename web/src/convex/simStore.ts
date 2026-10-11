@@ -39,7 +39,13 @@ export function makeSimStore(db: DatabaseWriter): SimStore {
 		async getMeta(): Promise<SimMeta> {
 			const m = await db.query('sim_meta').first();
 			if (!m) {
-				return { seq: 0, block: 1_000_000, blockedNonce: 0, clockOffsetMs: 0, envPrefix: DEFAULT_ENV_PREFIX };
+				return {
+					seq: 0,
+					block: 1_000_000,
+					blockedNonce: 0,
+					clockOffsetMs: 0,
+					envPrefix: DEFAULT_ENV_PREFIX
+				};
 			}
 			return {
 				seq: m.seq,
@@ -67,7 +73,12 @@ export function makeSimStore(db: DatabaseWriter): SimStore {
 				.withIndex('by_address_token', (q) => q.eq('address', lc(address)).eq('token', lc(token)))
 				.unique();
 			if (row) await db.patch(row._id, { amount: amount.toString() });
-			else await db.insert('sim_balances', { address: lc(address), token: lc(token), amount: amount.toString() });
+			else
+				await db.insert('sim_balances', {
+					address: lc(address),
+					token: lc(token),
+					amount: amount.toString()
+				});
 		},
 		async findMasterForAddress(address) {
 			const a = lc(address);
@@ -193,10 +204,7 @@ export function simTxJson(tx: SimTx): TxResultJson {
 }
 
 /** Register (idempotently) the deposits account of a sim line with the guard. */
-export async function registerSimMaster(
-	ctx: { db: DatabaseWriter },
-	m: SimMaster
-): Promise<void> {
+export async function registerSimMaster(ctx: { db: DatabaseWriter }, m: SimMaster): Promise<void> {
 	const existing = await ctx.db
 		.query('sim_masters')
 		.withIndex('by_account', (q) => q.eq('account', lc(m.account)))
@@ -214,7 +222,11 @@ export async function registerSimMaster(
 }
 
 /** Faucet: 1,000,000 of each test token (brief section 11). */
-export async function simFaucet(ctx: { db: DatabaseWriter }, address: string, amount = 1_000_000_000_000n): Promise<void> {
+export async function simFaucet(
+	ctx: { db: DatabaseWriter },
+	address: string,
+	amount = 1_000_000_000_000n
+): Promise<void> {
 	const chain = await getSimChain(ctx);
 	for (const t of FAUCET_TOKENS) await chain.fund(address, t, amount);
 }

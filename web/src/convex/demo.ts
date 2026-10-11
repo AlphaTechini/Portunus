@@ -6,7 +6,17 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { action, internalMutation, internalQuery } from './_generated/server';
-import { appError, chainMode, demoEnabled, productNow, requireSession, requireLine, simAddress, logEvent, notify } from './helpers';
+import {
+	appError,
+	chainMode,
+	demoEnabled,
+	productNow,
+	requireSession,
+	requireLine,
+	simAddress,
+	logEvent,
+	notify
+} from './helpers';
 import { chainPull, chainPayBatch } from './chain';
 import { ingestReceipts } from './opsDeposits';
 import { runDetention } from './lifecycle';
@@ -18,7 +28,11 @@ import type { HeldReceiptJson } from '../lib/shared/tempo/adapter';
 
 function requireDemoSim(): void {
 	if (!demoEnabled()) throw appError('DEMO_DISABLED', 'Demo controls are turned off.');
-	if (chainMode() !== 'sim') throw appError('NOT_SUPPORTED', 'The clock and stranger transfers only exist on the simulated chain.');
+	if (chainMode() !== 'sim')
+		throw appError(
+			'NOT_SUPPORTED',
+			'The clock and stranger transfers only exist on the simulated chain.'
+		);
 }
 
 export const guard = internalQuery({
@@ -35,7 +49,10 @@ export interface AdvanceResult {
 	sweep: SweepSummary;
 }
 
-async function advance(ctx: Parameters<typeof runDetention>[0], ms: number): Promise<AdvanceResult> {
+async function advance(
+	ctx: Parameters<typeof runDetention>[0],
+	ms: number
+): Promise<AdvanceResult> {
 	const offsetMs = await ctx.runMutation(internal.sim.bumpClock, { ms });
 	const sweep = await ctx.runAction(internal.sweep.run, {});
 	return { offsetMs, simNow: Date.now() + offsetMs, sweep };
@@ -59,7 +76,8 @@ export const freeTimeEndOf = internalQuery({
 	handler: async (ctx, a): Promise<{ freeTimeEndsAt: number; now: number }> => {
 		await requireSession(ctx, a.sessionToken);
 		const c = await ctx.db.get(a.containerId);
-		if (!c || c.freeTimeEndsAt === undefined) throw appError('INVALID_STATE', 'That container has no free time running.');
+		if (!c || c.freeTimeEndsAt === undefined)
+			throw appError('INVALID_STATE', 'That container has no free time running.');
 		if (c.state !== 'in_free_time' && c.state !== 'released') {
 			throw appError('INVALID_STATE', 'That container is not in free time.');
 		}
@@ -83,21 +101,34 @@ const STRANGER = simAddress('stranger:demo');
 
 export const strangerPlan = internalQuery({
 	args: { sessionToken: v.string(), lineOrgId: v.id('organizations') },
-	handler: async (ctx, a): Promise<{ target: string; viaContainer: string | null; stranger: string }> => {
+	handler: async (
+		ctx,
+		a
+	): Promise<{ target: string; viaContainer: string | null; stranger: string }> => {
 		await requireSession(ctx, a.sessionToken);
 		const line = await ctx.db.get(a.lineOrgId);
-		if (!line || line.kind !== 'line' || !line.depositsAccount) throw appError('NOT_FOUND', 'Line not found.');
+		if (!line || line.kind !== 'line' || !line.depositsAccount)
+			throw appError('NOT_FOUND', 'Line not found.');
 		const waiting = await ctx.db
 			.query('containers')
-			.withIndex('by_line_state', (q) => q.eq('lineOrgId', line._id).eq('state', 'awaiting_deposit'))
+			.withIndex('by_line_state', (q) =>
+				q.eq('lineOrgId', line._id).eq('state', 'awaiting_deposit')
+			)
 			.first();
-		return { target: waiting?.depositAddress ?? line.depositsAccount, viaContainer: waiting?.number ?? null, stranger: STRANGER };
+		return {
+			target: waiting?.depositAddress ?? line.depositsAccount,
+			viaContainer: waiting?.number ?? null,
+			stranger: STRANGER
+		};
 	}
 });
 
 export const ingestStranger = internalMutation({
 	args: { receipts: v.any(), txHash: v.string(), finalityMs: v.number(), blockNumber: v.string() },
-	handler: async (ctx, a): Promise<{ heldTransferIds: Id<'heldTransfers'>[]; reasons: string[] }> => {
+	handler: async (
+		ctx,
+		a
+	): Promise<{ heldTransferIds: Id<'heldTransfers'>[]; reasons: string[] }> => {
 		const r = await ingestReceipts(ctx, a.receipts as HeldReceiptJson[], {
 			mode: 'sim',
 			finalityMs: a.finalityMs,
@@ -118,20 +149,41 @@ export const ingestStranger = internalMutation({
  * unknown sender. The receive policy holds it in the guard; it shows up under Held transfers.
  */
 export const sendStrangerTransfer = action({
-	args: { sessionToken: v.string(), lineOrgId: v.id('organizations'), token: v.union(v.literal('BetaUSD'), v.literal('AlphaUSD')) },
+	args: {
+		sessionToken: v.string(),
+		lineOrgId: v.id('organizations'),
+		token: v.union(v.literal('BetaUSD'), v.literal('AlphaUSD'))
+	},
 	handler: async (
 		ctx,
 		a
-	): Promise<{ txHash: string; reason: string | null; heldTransferId: Id<'heldTransfers'> | null; amountUnits: string; token: string }> => {
+	): Promise<{
+		txHash: string;
+		reason: string | null;
+		heldTransferId: Id<'heldTransfers'> | null;
+		amountUnits: string;
+		token: string;
+	}> => {
 		requireDemoSim();
-		const plan = await ctx.runQuery(internal.demo.strangerPlan, { sessionToken: a.sessionToken, lineOrgId: a.lineOrgId });
+		const plan = await ctx.runQuery(internal.demo.strangerPlan, {
+			sessionToken: a.sessionToken,
+			lineOrgId: a.lineOrgId
+		});
 		const amount = a.token === 'BetaUSD' ? toUnits('250.00') : toUnits('175.00');
 		const token = a.token === 'BetaUSD' ? BETA_USD : ALPHA_USD;
 		await ctx.runMutation(internal.sim.fund, { address: plan.stranger });
 		const res = await ctx.runMutation(internal.sim.transferBatch, {
 			from: plan.stranger,
 			token,
-			calls: [{ to: plan.target, amountUnits: amount.toString(), memo: encodeMemo(plan.viaContainer ? `STRANGER ${plan.viaContainer}` : 'STRANGER TRANSFER') }]
+			calls: [
+				{
+					to: plan.target,
+					amountUnits: amount.toString(),
+					memo: encodeMemo(
+						plan.viaContainer ? `STRANGER ${plan.viaContainer}` : 'STRANGER TRANSFER'
+					)
+				}
+			]
 		});
 		if (!res.ok) throw appError('CHAIN_ERROR', res.error.message, { name: res.error.name });
 		const rec = await ctx.runMutation(internal.demo.ingestStranger, {
@@ -172,10 +224,16 @@ export const secondPullPlan = internalQuery({
 		const s = await requireLine(ctx, a.sessionToken);
 		const c = await ctx.db.get(a.containerId);
 		if (!c || c.lineOrgId !== s.org._id) throw appError('NOT_FOUND', 'Container not found.');
-		if (c.mode !== 'depositFree' || !c.accessKeyId) throw appError('INVALID_STATE', 'Only deposit-free containers have an access key to pull with.');
+		if (c.mode !== 'depositFree' || !c.accessKeyId)
+			throw appError(
+				'INVALID_STATE',
+				'Only deposit-free containers have an access key to pull with.'
+			);
 		const key = await ctx.db.get(c.accessKeyId);
-		if (!key || key.status !== 'active') throw appError('INVALID_STATE', 'The access key is not active.');
-		if (c.state !== 'in_detention' && c.state !== 'in_free_time') throw appError('INVALID_STATE', 'The container must be past free time to pull detention.');
+		if (!key || key.status !== 'active')
+			throw appError('INVALID_STATE', 'The access key is not active.');
+		if (c.state !== 'in_detention' && c.state !== 'in_free_time')
+			throw appError('INVALID_STATE', 'The container must be past free time to pull detention.');
 		const pulls = (
 			await ctx.db
 				.query('payments')
@@ -214,7 +272,15 @@ export const logPullAttempt = internalMutation({
 		const c = await ctx.db.get(a.containerId);
 		if (!c) return null;
 		const now = await productNow(ctx);
-		const tx = a.tx as { txHash: string; mode: 'sim' | 'live'; blockNumber: string; finalityMs: number; timestamp: number } | undefined;
+		const tx = a.tx as
+			| {
+					txHash: string;
+					mode: 'sim' | 'live';
+					blockNumber: string;
+					finalityMs: number;
+					timestamp: number;
+			  }
+			| undefined;
 		await ctx.db.insert('payments', {
 			kind: 'detention_pull',
 			mode: tx?.mode ?? 'sim',
@@ -238,7 +304,14 @@ export const logPullAttempt = internalMutation({
 		});
 		if (tx) {
 			await ctx.db.patch(c._id, { pulledUnits: (u(c.pulledUnits) + u(a.amountUnits)).toString() });
-			await logEvent(ctx, c._id, 'detention_pull', 'Extra detention pull accepted by the chain', now, a.memo);
+			await logEvent(
+				ctx,
+				c._id,
+				'detention_pull',
+				'Extra detention pull accepted by the chain',
+				now,
+				a.memo
+			);
 		} else {
 			await logEvent(
 				ctx,
@@ -262,7 +335,14 @@ export const logPullAttempt = internalMutation({
 });
 
 export type SecondPullResult =
-	| { refused: true; error: 'SpendingLimitExceeded'; remainingUnits: string; periodEnd: number; attemptedUnits: string; day: number }
+	| {
+			refused: true;
+			error: 'SpendingLimitExceeded';
+			remainingUnits: string;
+			periodEnd: number;
+			attemptedUnits: string;
+			day: number;
+	  }
 	| { refused: false; txHash: string; attemptedUnits: string; day: number };
 
 /**
@@ -273,15 +353,24 @@ export const trySecondPull = action({
 	args: { sessionToken: v.string(), containerId: v.id('containers') },
 	handler: async (ctx, a): Promise<SecondPullResult> => {
 		if (!demoEnabled()) throw appError('DEMO_DISABLED', 'Demo controls are turned off.');
-		// Make sure today's regular pull has happened first.
-		await ctx.runQuery(internal.demo.guard, { sessionToken: a.sessionToken });
+		// Authorize first (the line that owns the container), then make sure today's regular pull has happened.
+		await ctx.runQuery(internal.demo.secondPullPlan, a);
 		await runDetention(ctx, a.containerId);
 		const plan = await ctx.runQuery(internal.demo.secondPullPlan, a);
-		if (plan.day < 1) throw appError('INVALID_STATE', 'No detention day has started yet. Move the clock past the end of free time first.');
+		if (plan.day < 1)
+			throw appError(
+				'INVALID_STATE',
+				'No detention day has started yet. Move the clock past the end of free time first.'
+			);
 		const memo = pullMemo(plan.number, plan.day, plan.billOfLading);
 		const memoHex = encodeMemo(memo) as Hex;
 		// Sim: attempt just after the day's regular pull so the attempt falls in the same limit period.
-		const at = chainMode() === 'sim' ? (plan.lastPullAt !== null && plan.now - plan.lastPullAt < DAY_MS ? plan.lastPullAt + 1000 : plan.now) : undefined;
+		const at =
+			chainMode() === 'sim'
+				? plan.lastPullAt !== null && plan.now - plan.lastPullAt < DAY_MS
+					? plan.lastPullAt + 1000
+					: plan.now
+				: undefined;
 		const res = await chainPull(ctx, {
 			account: plan.account,
 			keyAddress: plan.keyAddress,
@@ -322,7 +411,12 @@ export const trySecondPull = action({
 			day: plan.day,
 			tx: res.tx
 		});
-		return { refused: false, txHash: res.tx.txHash, attemptedUnits: plan.amountUnits, day: plan.day };
+		return {
+			refused: false,
+			txHash: res.tx.txHash,
+			attemptedUnits: plan.amountUnits,
+			day: plan.day
+		};
 	}
 });
 

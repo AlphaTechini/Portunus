@@ -8,7 +8,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { internalAction, internalMutation, internalQuery } from './_generated/server';
-import { chainMode, productNow } from './helpers';
+import { chainMode, env, productNow } from './helpers';
 import { chainListHeldReceipts } from './chain';
 import { ingestReceipts } from './opsDeposits';
 import { runDetention, withJob } from './lifecycle';
@@ -21,6 +21,8 @@ export interface SweepWork {
 	now: number;
 	detention: Id<'containers'>[];
 	settleDue: Id<'containers'>[];
+	/** Settlement the line asked for that failed on-chain while the window is still open. */
+	retrySettle: Id<'containers'>[];
 	stuck: Id<'containers'>[];
 	keyWarn: Id<'containers'>[];
 	unscheduled: Id<'containers'>[];
@@ -30,7 +32,15 @@ export const findWork = internalQuery({
 	args: {},
 	handler: async (ctx): Promise<SweepWork> => {
 		const now = await productNow(ctx);
-		const work: SweepWork = { now, detention: [], settleDue: [], stuck: [], keyWarn: [], unscheduled: [] };
+		const work: SweepWork = {
+			now,
+			detention: [],
+			settleDue: [],
+			retrySettle: [],
+			stuck: [],
+			keyWarn: [],
+			unscheduled: []
+		};
 		const states = ['released', 'in_free_time', 'in_detention', 'returned', 'settling'] as const;
 		for (const state of states) {
 			const rows = await ctx.db
@@ -44,7 +54,10 @@ export const findWork = internalQuery({
 					continue;
 				}
 				if (F !== undefined) {
-					const due = detentionDaysAt({ freeTimeEndsAt: F, maxDetentionDays: c.maxDetentionDays, returnedAt: c.returnedAt }, now);
+					const due = detentionDaysAt(
+						{ freeTimeEndsAt: F, maxDetentionDays: c.maxDetentionDays, returnedAt: c.returnedAt },
+						now
+					);
 					const needs =
 						state === 'released' || state === 'in_free_time'
 							? now >= F
@@ -53,13 +66,20 @@ export const findWork = internalQuery({
 								: c.mode === 'depositFree' && due > c.detentionDays;
 					if (needs) work.detention.push(c._id);
 				}
-				if (state === 'returned' && c.settlementWindowEndsAt !== undefined && now >= c.settlementWindowEndsAt) {
+				if (
+					state === 'returned' &&
+					c.settlementWindowEndsAt !== undefined &&
+					now >= c.settlementWindowEndsAt
+				) {
 					work.settleDue.push(c._id);
+				} else if (state === 'returned' && c.pendingOnChain?.step === 'settle') {
+					work.retrySettle.push(c._id);
 				}
 				if (!c.scheduledJobId) work.unscheduled.push(c._id);
 				if (c.mode === 'depositFree' && c.accessKeyId) {
 					const key = await ctx.db.get(c.accessKeyId);
-					if (key && key.status === 'active' && !key.expiryWarned && key.expiry - now <= DAY_MS) work.keyWarn.push(c._id);
+					if (key && key.status === 'active' && !key.expiryWarned && key.expiry - now <= DAY_MS)
+						work.keyWarn.push(c._id);
 				}
 			}
 		}
@@ -100,7 +120,13 @@ export const run = internalAction({
 
 			// 1. Settlements that died half way go back to `returned` so they are retried below.
 			for (const id of work.stuck) {
-				if (await ctx.runMutation(internal.settlement.recoverStuck, { containerId: id, olderThanMs: 2 * 60_000 })) summary.recovered++;
+				if (
+					await ctx.runMutation(internal.settlement.recoverStuck, {
+						containerId: id,
+						olderThanMs: 2 * 60_000
+					})
+				)
+					summary.recovered++;
 			}
 
 			// 2. Detention: catch up every missed day, in order, once each.
@@ -115,9 +141,32 @@ export const run = internalAction({
 			work = await ctx.runQuery(internal.sweep.findWork, {});
 			if (work.settleDue.length > 0) {
 				const r = await withJob(ctx, 'sweep:settle', undefined, () =>
-					executeSettlements(ctx, { containerIds: work.settleDue, source: 'window', actor: 'Portunus scheduler' })
+					executeSettlements(ctx, {
+						containerIds: work.settleDue,
+						source: 'window',
+						actor: 'Portunus scheduler'
+					})
 				);
-				if (r.ok) summary.settled += r.value.filter((o) => o.status === 'settled' || o.status === 'disputed').length;
+				if (r.ok)
+					summary.settled += r.value.filter(
+						(o) => o.status === 'settled' || o.status === 'disputed'
+					).length;
+				else summary.errors.push(r.error);
+			}
+
+			// 3b. A settlement the line requested that failed on-chain is retried with what was posted.
+			if (work.retrySettle.length > 0) {
+				const r = await withJob(ctx, 'sweep:retry-settle', undefined, () =>
+					executeSettlements(ctx, {
+						containerIds: work.retrySettle,
+						source: 'line',
+						actor: 'Portunus scheduler'
+					})
+				);
+				if (r.ok)
+					summary.settled += r.value.filter(
+						(o) => o.status === 'settled' || o.status === 'disputed'
+					).length;
 				else summary.errors.push(r.error);
 			}
 
@@ -133,7 +182,11 @@ export const run = internalAction({
 
 			// 5. Live: index guard receipts that arrived outside the app (stray transfers).
 			summary.indexed = await indexLive(ctx);
-			await ctx.runMutation(internal.lifecycle.jobFinish, { id: job, ok: summary.errors.length === 0, error: summary.errors[0] });
+			await ctx.runMutation(internal.lifecycle.jobFinish, {
+				id: job,
+				ok: summary.errors.length === 0,
+				error: summary.errors[0]
+			});
 		} catch (e) {
 			const error = e instanceof Error ? e.message : String(e);
 			summary.errors.push(error);
@@ -152,7 +205,13 @@ export const linesToIndex = internalQuery({
 			.collect();
 		return lines
 			.filter((l) => l.depositsAccount)
-			.map((l) => ({ orgId: l._id, depositsAccount: l.depositsAccount!, fromBlock: l.lastIndexedBlock ?? '0' }));
+			.map((l) => ({
+				orgId: l._id,
+				depositsAccount: l.depositsAccount!,
+				fromBlock: l.lastIndexedBlock
+					? (BigInt(l.lastIndexedBlock) + 1n).toString()
+					: (env('INDEXER_START_BLOCK') ?? '0')
+			}));
 	}
 });
 
@@ -173,9 +232,16 @@ async function indexLive(ctx: import('./_generated/server').ActionCtx): Promise<
 	if (chainMode() !== 'live') return 0;
 	let n = 0;
 	for (const line of await ctx.runQuery(internal.sweep.linesToIndex, {})) {
-		const res = await chainListHeldReceipts(ctx, { depositsAccount: line.depositsAccount, fromBlock: line.fromBlock });
+		const res = await chainListHeldReceipts(ctx, {
+			depositsAccount: line.depositsAccount,
+			fromBlock: line.fromBlock
+		});
 		if (!res.ok) continue;
-		n += await ctx.runMutation(internal.sweep.ingestIndexed, { orgId: line.orgId, receipts: res.receipts, toBlock: res.toBlock });
+		n += await ctx.runMutation(internal.sweep.ingestIndexed, {
+			orgId: line.orgId,
+			receipts: res.receipts,
+			toBlock: res.toBlock
+		});
 	}
 	return n;
 }

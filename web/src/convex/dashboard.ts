@@ -7,8 +7,22 @@ import { DAY_MS } from '../lib/shared/domain/constants';
 import { settlementAmounts } from '../lib/shared/domain/rules';
 import { u } from '../lib/shared/domain/money';
 
-const HELD_STATES: Doc<'containers'>['state'][] = ['deposit_held', 'released', 'in_free_time', 'in_detention', 'returned', 'settling'];
-const LIVE_FREE_STATES: Doc<'containers'>['state'][] = ['authorized', 'released', 'in_free_time', 'in_detention', 'returned', 'settling'];
+const HELD_STATES: Doc<'containers'>['state'][] = [
+	'deposit_held',
+	'released',
+	'in_free_time',
+	'in_detention',
+	'returned',
+	'settling'
+];
+const LIVE_FREE_STATES: Doc<'containers'>['state'][] = [
+	'authorized',
+	'released',
+	'in_free_time',
+	'in_detention',
+	'returned',
+	'settling'
+];
 
 export interface SeriesPoint {
 	/** ISO date (UTC) of the end of the bucket. */
@@ -30,19 +44,25 @@ function series(now: number, events: Ev[], kind: 'cumulative' | 'sum', days = 30
 		for (const e of events) {
 			if (kind === 'cumulative' ? e.t <= end : e.t > start && e.t <= end) total += e.delta;
 		}
-		out.push({ day: new Date(end).toISOString().slice(0, 10), t: end, valueUnits: total.toString() });
+		out.push({
+			day: new Date(end).toISOString().slice(0, 10),
+			t: end,
+			valueUnits: total.toString()
+		});
 	}
 	return out;
 }
 
-const isHeldFlow = (p: Doc<'payments'>): boolean => p.status === 'confirmed' && p.receiptId !== undefined && p.receiptId !== '';
+const isHeldFlow = (p: Doc<'payments'>): boolean =>
+	p.status === 'confirmed' && p.receiptId !== undefined && p.receiptId !== '';
 
 function heldEvents(payments: Doc<'payments'>[]): Ev[] {
 	const evs: Ev[] = [];
 	for (const p of payments) {
 		if (!isHeldFlow(p)) continue;
 		if (p.kind === 'deposit') evs.push({ t: p.timestamp, delta: u(p.amountUnits) });
-		else if (p.kind === 'charge' || p.kind === 'refund' || p.kind === 'dispute_release') evs.push({ t: p.timestamp, delta: -u(p.amountUnits) });
+		else if (p.kind === 'charge' || p.kind === 'refund' || p.kind === 'dispute_release')
+			evs.push({ t: p.timestamp, delta: -u(p.amountUnits) });
 	}
 	return evs;
 }
@@ -59,7 +79,19 @@ async function recentPayments(
 	limit: number
 ) {
 	const rows = payments
-		.filter((p) => p.status !== 'pending' && ['deposit', 'detention_pull', 'charge', 'refund', 'dispute_release', 'key_authorized', 'held_return'].includes(p.kind))
+		.filter(
+			(p) =>
+				p.status !== 'pending' &&
+				[
+					'deposit',
+					'detention_pull',
+					'charge',
+					'refund',
+					'dispute_release',
+					'key_authorized',
+					'held_return'
+				].includes(p.kind)
+		)
 		.sort((x, y) => y.timestamp - x.timestamp)
 		.slice(0, limit);
 	const out = [];
@@ -105,20 +137,30 @@ export const importer = query({
 			}
 		}
 		const refunds = payments.filter((p) => p.kind === 'refund' && p.status === 'confirmed');
-		const freed30 = refunds.filter((p) => p.timestamp > now - 30 * DAY_MS).reduce((t, p) => t + u(p.amountUnits), 0n);
+		const freed30 = refunds
+			.filter((p) => p.timestamp > now - 30 * DAY_MS)
+			.reduce((t, p) => t + u(p.amountUnits), 0n);
 		const freedTotal = refunds.reduce((t, p) => t + u(p.amountUnits), 0n);
 		const timings = containers
 			.filter((c) => c.mode === 'held' && c.settledAt !== undefined && c.returnedAt !== undefined)
 			.map((c) => c.settledAt! - c.returnedAt!);
-		const avg = timings.length ? Math.round(timings.reduce((t, x) => t + x, 0) / timings.length) : null;
+		const avg = timings.length
+			? Math.round(timings.reduce((t, x) => t + x, 0) / timings.length)
+			: null;
 		const keys = await Promise.all(
 			containers
-				.filter((c) => c.mode === 'depositFree' && c.accessKeyId && LIVE_FREE_STATES.includes(c.state))
+				.filter(
+					(c) => c.mode === 'depositFree' && c.accessKeyId && LIVE_FREE_STATES.includes(c.state)
+				)
 				.map((c) => ctx.db.get(c.accessKeyId!))
 		);
-		const activeKeys = keys.filter((k): k is Doc<'accessKeys'> => k !== null && k.status === 'active');
+		const activeKeys = keys.filter(
+			(k): k is Doc<'accessKeys'> => k !== null && k.status === 'active'
+		);
 		const detentionPaid = payments
-			.filter((p) => p.status === 'confirmed' && (p.kind === 'detention_pull' || p.kind === 'charge'))
+			.filter(
+				(p) => p.status === 'confirmed' && (p.kind === 'detention_pull' || p.kind === 'charge')
+			)
 			.reduce((t, p) => t + u(p.amountUnits), 0n);
 		return {
 			now,
@@ -127,10 +169,14 @@ export const importer = query({
 			cashFreedTotalUnits: freedTotal.toString(),
 			avgReturnToRefundMs: avg,
 			refundCount: timings.length,
-			awaitingDeposit: containers.filter((c) => c.state === 'awaiting_deposit' || c.state === 'requested').length,
-			inFreeTime: containers.filter((c) => c.state === 'in_free_time' || c.state === 'released').length,
+			awaitingDeposit: containers.filter(
+				(c) => c.state === 'awaiting_deposit' || c.state === 'requested'
+			).length,
+			inFreeTime: containers.filter((c) => c.state === 'in_free_time' || c.state === 'released')
+				.length,
 			inDetention: containers.filter((c) => c.state === 'in_detention').length,
-			awaitingSettlement: containers.filter((c) => c.state === 'returned' || c.state === 'settling').length,
+			awaitingSettlement: containers.filter((c) => c.state === 'returned' || c.state === 'settling')
+				.length,
 			disputed: containers.filter((c) => c.state === 'disputed').length,
 			settled: containers.filter((c) => c.state === 'settled').length,
 			containersTotal: containers.length,
@@ -143,7 +189,13 @@ export const importer = query({
 				.filter((c) => c.state === 'in_free_time' && c.freeTimeEndsAt !== undefined)
 				.sort((x, y) => x.freeTimeEndsAt! - y.freeTimeEndsAt!)
 				.slice(0, 6)
-				.map((c) => ({ containerId: c._id, number: c.number, mode: c.mode, freeTimeEndsAt: c.freeTimeEndsAt!, dailyRateUnits: c.dailyRateUnits })),
+				.map((c) => ({
+					containerId: c._id,
+					number: c.number,
+					mode: c.mode,
+					freeTimeEndsAt: c.freeTimeEndsAt!,
+					dailyRateUnits: c.dailyRateUnits
+				})),
 			recent: await recentPayments(ctx, payments, 8),
 			series: {
 				cashHeldPerDay: series(now, heldEvents(payments), 'cumulative'),
@@ -174,7 +226,8 @@ export const line = query({
 		let activeKeys = 0;
 		const refundsDue = [];
 		for (const c of containers) {
-			if (c.mode === 'held' && HELD_STATES.includes(c.state)) depositsHeld += u(c.receivedUnits ?? '0');
+			if (c.mode === 'held' && HELD_STATES.includes(c.state))
+				depositsHeld += u(c.receivedUnits ?? '0');
 			if (c.state === 'disputed' && c.disputeId) {
 				const d = await ctx.db.get(c.disputeId);
 				if (d && d.status === 'open') depositsHeld += u(d.disputedUnits);
@@ -210,8 +263,21 @@ export const line = query({
 		}
 		refundsDue.sort((x, y) => x.deadline - y.deadline);
 		const collected = payments
-			.filter((p) => p.status === 'confirmed' && (p.kind === 'detention_pull' || p.kind === 'charge' || (p.kind === 'dispute_release' && p.to.toLowerCase() === (org.chargesAddress ?? '').toLowerCase())))
-			.reduce((t, p) => ({ all: t.all + u(p.amountUnits), last30: t.last30 + (p.timestamp > now - 30 * DAY_MS ? u(p.amountUnits) : 0n) }), { all: 0n, last30: 0n });
+			.filter(
+				(p) =>
+					p.status === 'confirmed' &&
+					(p.kind === 'detention_pull' ||
+						p.kind === 'charge' ||
+						(p.kind === 'dispute_release' &&
+							p.to.toLowerCase() === (org.chargesAddress ?? '').toLowerCase()))
+			)
+			.reduce(
+				(t, p) => ({
+					all: t.all + u(p.amountUnits),
+					last30: t.last30 + (p.timestamp > now - 30 * DAY_MS ? u(p.amountUnits) : 0n)
+				}),
+				{ all: 0n, last30: 0n }
+			);
 		const held = await ctx.db
 			.query('heldTransfers')
 			.withIndex('by_line_status', (q) => q.eq('lineOrgId', org._id).eq('status', 'held'))
@@ -231,21 +297,36 @@ export const line = query({
 			activeKeys,
 			dailyCapTotalUnits: dailyCap.toString(),
 			pastFreeTime: containers.filter((c) => c.state === 'in_detention').length,
-			inFreeTime: containers.filter((c) => c.state === 'in_free_time' || c.state === 'released').length,
+			inFreeTime: containers.filter((c) => c.state === 'in_free_time' || c.state === 'released')
+				.length,
 			awaitingDeposit: containers.filter((c) => c.state === 'awaiting_deposit').length,
 			awaitingAuthorization: containers.filter((c) => c.state === 'requested').length,
-			readyToRelease: containers.filter((c) => c.state === 'deposit_held' || c.state === 'authorized').length,
-			awaitingSettlement: containers.filter((c) => c.state === 'returned' || c.state === 'settling').length,
+			readyToRelease: containers.filter(
+				(c) => c.state === 'deposit_held' || c.state === 'authorized'
+			).length,
+			awaitingSettlement: containers.filter((c) => c.state === 'returned' || c.state === 'settling')
+				.length,
 			settled: containers.filter((c) => c.state === 'settled').length,
 			detentionCollectedUnits: collected.all.toString(),
 			detentionCollectedLast30Units: collected.last30.toString(),
 			refundsDue,
 			overdueRefunds: refundsDue.filter((r) => r.overdue).length,
-			heldTransfers: { count: held.length, units: held.reduce((t, h) => (h.token.length ? t + (h.tokenSymbol === 'AlphaUSD' ? u(h.amountUnits) : 0n) : t), 0n).toString() },
+			heldTransfers: {
+				count: held.length,
+				units: held
+					.reduce(
+						(t, h) =>
+							h.token.length ? t + (h.tokenSymbol === 'AlphaUSD' ? u(h.amountUnits) : 0n) : t,
+						0n
+					)
+					.toString()
+			},
 			openDisputes: openDisputes.length,
 			compliance: {
 				settledCount: timings.length,
-				avgReturnToRefundMs: timings.length ? Math.round(timings.reduce((t, x) => t + x, 0) / timings.length) : null,
+				avgReturnToRefundMs: timings.length
+					? Math.round(timings.reduce((t, x) => t + x, 0) / timings.length)
+					: null,
 				maxReturnToRefundMs: timings.length ? Math.max(...timings) : null,
 				settlementWindowDays: org.settlementWindowDays ?? 3
 			},

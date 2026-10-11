@@ -27,3 +27,8 @@ vite.config.ts.timestamp-*
 
 # Convex
 .convex/
+
+# Playwright
+/.playwright
+/test-results
+/playwright-report

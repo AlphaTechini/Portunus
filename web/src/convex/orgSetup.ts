@@ -4,12 +4,22 @@ import type { MutationCtx } from './_generated/server';
 import { chainMode, env, lc, simAddress } from './helpers';
 import { ensureSimMeta, nextSimLineIndex, registerSimMaster, simFaucet } from './simStore';
 import { simMasterIdForIndex } from '../lib/shared/domain/virtualAddress';
-import { ALPHA_USD, DEFAULT_CLEAN_RETURNS_FOR_DEPOSIT_FREE, DEFAULT_MAX_DETENTION_DAYS, DEFAULT_SETTLEMENT_WINDOW_DAYS } from '../lib/shared/domain/constants';
+import {
+	ALPHA_USD,
+	DEFAULT_CLEAN_RETURNS_FOR_DEPOSIT_FREE,
+	DEFAULT_MAX_DETENTION_DAYS,
+	DEFAULT_SETTLEMENT_WINDOW_DAYS
+} from '../lib/shared/domain/constants';
 import { toUnits } from '../lib/shared/domain/money';
 
 type ContainerType = Doc<'rateCards'>['containerType'];
 
-export const DEFAULT_RATE_CARDS: { containerType: ContainerType; freeDays: number; rate: string; deposit: string }[] = [
+export const DEFAULT_RATE_CARDS: {
+	containerType: ContainerType;
+	freeDays: number;
+	rate: string;
+	deposit: string;
+}[] = [
 	{ containerType: '20GP', freeDays: 7, rate: '45.00', deposit: '1200.00' },
 	{ containerType: '40GP', freeDays: 7, rate: '75.00', deposit: '2000.00' },
 	{ containerType: '40HC', freeDays: 7, rate: '80.00', deposit: '2200.00' },
@@ -17,7 +27,10 @@ export const DEFAULT_RATE_CARDS: { containerType: ContainerType; freeDays: numbe
 	{ containerType: '40RF', freeDays: 4, rate: '150.00', deposit: '3500.00' }
 ];
 
-export async function insertDefaultRateCards(ctx: MutationCtx, lineOrgId: Id<'organizations'>): Promise<void> {
+export async function insertDefaultRateCards(
+	ctx: MutationCtx,
+	lineOrgId: Id<'organizations'>
+): Promise<void> {
 	for (const c of DEFAULT_RATE_CARDS) {
 		await ctx.db.insert('rateCards', {
 			lineOrgId,
@@ -32,7 +45,10 @@ export async function insertDefaultRateCards(ctx: MutationCtx, lineOrgId: Id<'or
 /** 'Meridian Ocean Lines' -> 'MRDN'-style short code: consonant-heavy initials, unique. */
 export async function makeShortCode(ctx: MutationCtx, name: string): Promise<string> {
 	const letters = name.toUpperCase().replace(/[^A-Z]/g, '');
-	const words = name.toUpperCase().split(/[^A-Z]+/).filter(Boolean);
+	const words = name
+		.toUpperCase()
+		.split(/[^A-Z]+/)
+		.filter(Boolean);
 	let base = words.length >= 2 ? words.map((w) => w[0]).join('') : letters;
 	if (base.length < 4) base = (base + letters.replace(/[AEIOU]/g, '') + letters).slice(0, 4);
 	base = base.slice(0, 4).padEnd(4, 'X');
@@ -52,7 +68,11 @@ export async function makeShortCode(ctx: MutationCtx, name: string): Promise<str
  * Sim: derived fake addresses, registered with the sim guard. Live: addresses from the one-time
  * setup script (env), for the first line only; further lines need their own mined master.
  */
-export async function provisionLine(ctx: MutationCtx, orgId: Id<'organizations'>, now: number): Promise<void> {
+export async function provisionLine(
+	ctx: MutationCtx,
+	orgId: Id<'organizations'>,
+	now: number
+): Promise<void> {
 	const org = await ctx.db.get(orgId);
 	if (!org || org.kind !== 'line') return;
 	const resolverOrgId =
@@ -84,7 +104,12 @@ export async function provisionLine(ctx: MutationCtx, orgId: Id<'organizations'>
 			chargesAddress: env('PORTUNUS_CHARGES'),
 			settlementContract: settlement,
 			receivePolicy: settlement
-				? { senderPolicy: 'reject-all', tokenPolicy: 'allow-all', recoveryAuthority: settlement, configuredAt: now }
+				? {
+						senderPolicy: 'reject-all',
+						tokenPolicy: 'allow-all',
+						recoveryAuthority: settlement,
+						configuredAt: now
+					}
 				: undefined,
 			resolverOrgId
 		});
@@ -109,7 +134,8 @@ export async function provisionLine(ctx: MutationCtx, orgId: Id<'organizations'>
 			configuredAt: now
 		},
 		settlementWindowDays: org.settlementWindowDays ?? DEFAULT_SETTLEMENT_WINDOW_DAYS,
-		cleanReturnsForDepositFree: org.cleanReturnsForDepositFree ?? DEFAULT_CLEAN_RETURNS_FOR_DEPOSIT_FREE,
+		cleanReturnsForDepositFree:
+			org.cleanReturnsForDepositFree ?? DEFAULT_CLEAN_RETURNS_FOR_DEPOSIT_FREE,
 		maxDetentionDays: org.maxDetentionDays ?? DEFAULT_MAX_DETENTION_DAYS,
 		resolverOrgId
 	});

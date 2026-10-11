@@ -27,7 +27,12 @@ export const jobStart = internalMutation({
 	args: { kind: v.string(), containerId: v.optional(v.id('containers')) },
 	handler: async (ctx, a): Promise<Id<'jobRuns'>> => {
 		const now = await productNow(ctx);
-		return ctx.db.insert('jobRuns', { kind: a.kind, containerId: a.containerId, scheduledFor: now, ranAt: now });
+		return ctx.db.insert('jobRuns', {
+			kind: a.kind,
+			containerId: a.containerId,
+			scheduledFor: now,
+			ranAt: now
+		});
 	}
 });
 
@@ -62,7 +67,8 @@ export async function withJob<T>(
 
 export const detentionStep = internalMutation({
 	args: { containerId: v.id('containers') },
-	handler: async (ctx, a): Promise<DetentionStep> => detentionStepOp(ctx, a.containerId, await productNow(ctx))
+	handler: async (ctx, a): Promise<DetentionStep> =>
+		detentionStepOp(ctx, a.containerId, await productNow(ctx))
 });
 
 export const pullResult = internalMutation({
@@ -93,7 +99,10 @@ export const scheduleNext = internalMutation({
  * Process every due detention day for one container: held accrues, deposit-free pulls one day
  * at a time through the access key at the day's due time. Safe to call repeatedly.
  */
-export async function runDetention(ctx: ActionCtx, containerId: Id<'containers'>): Promise<{ processed: number }> {
+export async function runDetention(
+	ctx: ActionCtx,
+	containerId: Id<'containers'>
+): Promise<{ processed: number }> {
 	let processed = 0;
 	for (let i = 0; i < 80; i++) {
 		const step = await ctx.runMutation(internal.lifecycle.detentionStep, { containerId });
@@ -146,7 +155,11 @@ export const onWindowEnd = internalAction({
 	handler: async (ctx, a): Promise<null> => {
 		await withJob(ctx, 'onWindowEnd', a.containerId, async () => {
 			await runDetention(ctx, a.containerId);
-			return executeSettlements(ctx, { containerIds: [a.containerId], source: 'window', actor: 'Portunus scheduler' });
+			return executeSettlements(ctx, {
+				containerIds: [a.containerId],
+				source: 'window',
+				actor: 'Portunus scheduler'
+			});
 		});
 		return null;
 	}
@@ -165,9 +178,30 @@ export const keyExpiryWarning = internalMutation({
 		if (c.state === 'settled' || c.state === 'settling') return null;
 		await ctx.db.patch(key._id, { expiryWarned: true });
 		const body = `The access key for ${c.number} expires ${fmtDate(key.expiry)}. After that no detention can be pulled. Daily cap ${formatUsd(u(key.dailyLimitUnits))}.`;
-		await notify(ctx, { orgId: c.lineOrgId, kind: 'key_expiry', title: `Access key expires soon: ${c.number}`, body, containerId: c._id, at: now });
-		await notify(ctx, { orgId: c.importerOrgId, kind: 'key_expiry', title: `Access key expires soon: ${c.number}`, body, containerId: c._id, at: now });
-		await logEvent(ctx, c._id, 'key_expiry_warning', 'Access key expires within a day', now, fmtDate(key.expiry));
+		await notify(ctx, {
+			orgId: c.lineOrgId,
+			kind: 'key_expiry',
+			title: `Access key expires soon: ${c.number}`,
+			body,
+			containerId: c._id,
+			at: now
+		});
+		await notify(ctx, {
+			orgId: c.importerOrgId,
+			kind: 'key_expiry',
+			title: `Access key expires soon: ${c.number}`,
+			body,
+			containerId: c._id,
+			at: now
+		});
+		await logEvent(
+			ctx,
+			c._id,
+			'key_expiry_warning',
+			'Access key expires within a day',
+			now,
+			fmtDate(key.expiry)
+		);
 		return null;
 	}
 });

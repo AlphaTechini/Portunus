@@ -3,7 +3,12 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { appError, logEvent, notify, setState } from './helpers';
 import { refreshRequestStatus } from './opsRequests';
-import { ALPHA_USD, DAY_MS, DAY_SEC, DEFAULT_RELEASE_ALLOWANCE_DAYS } from '../lib/shared/domain/constants';
+import {
+	ALPHA_USD,
+	DAY_MS,
+	DAY_SEC,
+	DEFAULT_RELEASE_ALLOWANCE_DAYS
+} from '../lib/shared/domain/constants';
 import { keyAuthorizedMemo, keyRevokedMemo, encodeMemo } from '../lib/shared/domain/memo';
 import { formatUsd, u } from '../lib/shared/domain/money';
 import { depositFreeExpiry } from '../lib/shared/domain/rules';
@@ -15,7 +20,10 @@ const fmtDate = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
  * Expiry for a key authorized now. Free time has not started (the line releases after the
  * authorization), so estimate: now + release allowance + free days, then + max detention days.
  */
-export function plannedKeyExpiry(c: Pick<Doc<'containers'>, 'freeDays' | 'maxDetentionDays'>, now: number): number {
+export function plannedKeyExpiry(
+	c: Pick<Doc<'containers'>, 'freeDays' | 'maxDetentionDays'>,
+	now: number
+): number {
 	const estimatedFreeEnd = now + DEFAULT_RELEASE_ALLOWANCE_DAYS * DAY_MS + c.freeDays * DAY_MS;
 	return depositFreeExpiry(estimatedFreeEnd, c.maxDetentionDays);
 }
@@ -58,7 +66,8 @@ export async function insertPreparedKey(
 		now: number;
 	}
 ): Promise<Id<'accessKeys'>> {
-	if (!a.line.chargesAddress) throw appError('INVALID', 'The line has no charges address configured.');
+	if (!a.line.chargesAddress)
+		throw appError('INVALID', 'The line has no charges address configured.');
 	return ctx.db.insert('accessKeys', {
 		containerId: a.container._id,
 		account: a.account.toLowerCase(),

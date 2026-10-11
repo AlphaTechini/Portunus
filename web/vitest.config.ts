@@ -4,10 +4,16 @@ import { defineConfig } from 'vitest/config';
 // Other suites have their own configs: vitest.runtime.config.ts (in-browser runtime),
 // vitest.tempo.config.ts (live Tempo helpers).
 export default defineConfig({
+	// Standalone tsconfig: the app tsconfig extends a file SvelteKit generates in node_modules.
+	tsconfig: './tsconfig.vitest.json',
 	test: {
 		environment: 'edge-runtime',
 		server: { deps: { inline: ['convex-test'] } },
-		include: ['tests/backend/**/*.test.ts', 'src/lib/shared/domain/**/*.test.ts', 'src/lib/shared/tempo/sim.test.ts'],
+		include: [
+			'tests/backend/**/*.test.ts',
+			'src/lib/shared/domain/**/*.test.ts',
+			'src/lib/shared/tempo/sim.test.ts'
+		],
 		testTimeout: 60_000,
 		hookTimeout: 60_000
 	}

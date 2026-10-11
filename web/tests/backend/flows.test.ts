@@ -34,22 +34,35 @@ describe('held flow end to end', () => {
 				{ number: newNumber(), type: '20GP' }
 			]
 		});
-		const req = await t.query(api.releaseRequests.get, { sessionToken: tunde, requestId: created.requestId });
+		const req = await t.query(api.releaseRequests.get, {
+			sessionToken: tunde,
+			requestId: created.requestId
+		});
 		expect(req!.containers).toHaveLength(2);
 		expect(req!.containers.every((c) => c.state === 'awaiting_deposit')).toBe(true);
 		expect(req!.totals.depositUnits).toBe(toUnits('3200').toString());
 
-		const preview = await t.query(api.deposits.preview, { sessionToken: tunde, requestId: created.requestId });
+		const preview = await t.query(api.deposits.preview, {
+			sessionToken: tunde,
+			requestId: created.requestId
+		});
 		expect(preview.items).toHaveLength(2);
 		const balanceBefore = u(preview.balanceUnits!);
 
-		const paid = await t.action(api.deposits.payBatch, { sessionToken: tunde, requestId: created.requestId, approval: demoApproval });
+		const paid = await t.action(api.deposits.payBatch, {
+			sessionToken: tunde,
+			requestId: created.requestId,
+			approval: demoApproval
+		});
 		expect(paid.allCovered).toBe(true);
 		expect(paid.finalityMs).toBeGreaterThanOrEqual(450);
 		expect(paid.finalityMs).toBeLessThan(550);
 
 		// Release order: free time starts.
-		const rel = await t.mutation(api.releaseRequests.issueReleaseOrder, { sessionToken: adaeze, requestId: created.requestId });
+		const rel = await t.mutation(api.releaseRequests.issueReleaseOrder, {
+			sessionToken: adaeze,
+			requestId: created.requestId
+		});
 		expect(rel.released).toHaveLength(2);
 		const target = rel.released[0];
 		const after = await t.query(api.containers.get, { sessionToken: adaeze, containerId: target });
@@ -58,15 +71,27 @@ describe('held flow end to end', () => {
 		expect(F - after.container.releasedAt!).toBe(7 * DAY);
 
 		// Two days past free time + an hour: detention day 3.
-		const adv = await t.action(api.demo.advanceClock, { sessionToken: adaeze, ms: 9 * DAY + 3_600_000 });
+		const adv = await t.action(api.demo.advanceClock, {
+			sessionToken: adaeze,
+			ms: 9 * DAY + 3_600_000
+		});
 		expect(adv.sweep.errors).toEqual([]);
 		const late = await t.query(api.containers.get, { sessionToken: adaeze, containerId: target });
 		expect(late.container.state).toBe('in_detention');
 		expect(late.container.detentionDays).toBe(3);
 		expect(late.container.accruedUnits).toBe(toUnits('225').toString()); // 3 x 75.00
 
-		await t.mutation(api.containers.recordReturn, { sessionToken: adaeze, containerId: target, eirNumber: 'EIR-778812', depot: 'Apapa Yard 3' });
-		const settled = await t.action(api.containers.postCharges, { sessionToken: adaeze, containerId: target, damageUnits: '0' });
+		await t.mutation(api.containers.recordReturn, {
+			sessionToken: adaeze,
+			containerId: target,
+			eirNumber: 'EIR-778812',
+			depot: 'Apapa Yard 3'
+		});
+		const settled = await t.action(api.containers.postCharges, {
+			sessionToken: adaeze,
+			containerId: target,
+			damageUnits: '0'
+		});
 		expect(settled.status).toBe('settled');
 		expect(settled.chargeUnits).toBe(toUnits('225').toString());
 		expect(settled.refundUnits).toBe(toUnits('1775').toString());
@@ -84,7 +109,9 @@ describe('held flow end to end', () => {
 		expect(done.container.refundUnits).toBe(toUnits('1775').toString());
 
 		// The other container is untouched.
-		const balanceAfter = await t.query(api.deposits.preview, { sessionToken: tunde, requestId: created.requestId }).catch(() => null);
+		const balanceAfter = await t
+			.query(api.deposits.preview, { sessionToken: tunde, requestId: created.requestId })
+			.catch(() => null);
 		void balanceAfter;
 		void balanceBefore;
 		void fromUnits;
@@ -101,25 +128,46 @@ describe('deposit-free flow', () => {
 		expect(open.mode).toBe('depositFree');
 
 		// The deposit pay path is for held requests only.
-		await expect(t.query(api.deposits.preview, { sessionToken: wanjiru, requestId: open._id })).rejects.toThrow(/NOT_SUPPORTED/);
+		await expect(
+			t.query(api.deposits.preview, { sessionToken: wanjiru, requestId: open._id })
+		).rejects.toThrow(/NOT_SUPPORTED/);
 
-		const prep = await t.action(api.accessKeys.prepare, { sessionToken: wanjiru, requestId: open._id });
+		const prep = await t.action(api.accessKeys.prepare, {
+			sessionToken: wanjiru,
+			requestId: open._id
+		});
 		expect(prep.keys).toHaveLength(2);
 		const k0 = prep.keys[0];
 		expect(k0.periodSec).toBe(86400);
 		expect(k0.dailyLimitUnits).toBe(toUnits('45').toString());
 		// Preparing again reuses the same keys.
-		const prep2 = await t.action(api.accessKeys.prepare, { sessionToken: wanjiru, requestId: open._id });
+		const prep2 = await t.action(api.accessKeys.prepare, {
+			sessionToken: wanjiru,
+			requestId: open._id
+		});
 		expect(prep2.keys.map((k) => k.keyAddress)).toEqual(prep.keys.map((k) => k.keyAddress));
 
-		const bal0 = await t.query(api.releaseRequests.get, { sessionToken: wanjiru, requestId: open._id });
-		const auth = await t.action(api.accessKeys.authorize, { sessionToken: wanjiru, requestId: open._id, approval: demoApproval });
+		const bal0 = await t.query(api.releaseRequests.get, {
+			sessionToken: wanjiru,
+			requestId: open._id
+		});
+		const auth = await t.action(api.accessKeys.authorize, {
+			sessionToken: wanjiru,
+			requestId: open._id,
+			approval: demoApproval
+		});
 		expect(auth.authorized).toHaveLength(2);
-		const bal1 = await t.query(api.releaseRequests.get, { sessionToken: wanjiru, requestId: open._id });
+		const bal1 = await t.query(api.releaseRequests.get, {
+			sessionToken: wanjiru,
+			requestId: open._id
+		});
 		expect(bal1!.balanceUnits).toBe(bal0!.balanceUnits); // no money moved
 		expect(bal1!.containers.every((c) => c.state === 'authorized')).toBe(true);
 
-		const rel = await t.mutation(api.releaseRequests.issueReleaseOrder, { sessionToken: adaeze, requestId: open._id });
+		const rel = await t.mutation(api.releaseRequests.issueReleaseOrder, {
+			sessionToken: adaeze,
+			requestId: open._id
+		});
 		const target = rel.released[0];
 		// Jump to just after free time ends: the day-1 pull runs.
 		await t.action(api.demo.jumpToFreeTimeEnd, { sessionToken: adaeze, containerId: target });
@@ -127,11 +175,20 @@ describe('deposit-free flow', () => {
 		expect(c.container.state).toBe('in_detention');
 		expect(c.container.detentionDays).toBe(1);
 		expect(c.container.pulledUnits).toBe(toUnits('45').toString());
-		expect(c.payments.filter((p) => p.kind === 'detention_pull' && p.status === 'confirmed')).toHaveLength(1);
+		expect(
+			c.payments.filter((p) => p.kind === 'detention_pull' && p.status === 'confirmed')
+		).toHaveLength(1);
 
 		const metaBefore = await t.run(async (ctx) => (await ctx.db.query('sim_meta').first())!.seq);
-		const second = await t.action(api.demo.trySecondPull, { sessionToken: adaeze, containerId: target });
-		expect(second).toMatchObject({ refused: true, error: 'SpendingLimitExceeded', remainingUnits: '0' });
+		const second = await t.action(api.demo.trySecondPull, {
+			sessionToken: adaeze,
+			containerId: target
+		});
+		expect(second).toMatchObject({
+			refused: true,
+			error: 'SpendingLimitExceeded',
+			remainingUnits: '0'
+		});
 		const metaAfter = await t.run(async (ctx) => (await ctx.db.query('sim_meta').first())!.seq);
 		expect(metaAfter).toBe(metaBefore); // the chain recorded no transaction
 		c = await t.query(api.containers.get, { sessionToken: wanjiru, containerId: target });
@@ -146,8 +203,16 @@ describe('deposit-free flow', () => {
 		expect(c.container.detentionDays).toBe(2);
 		expect(c.container.pulledUnits).toBe(toUnits('90').toString());
 
-		await t.mutation(api.containers.recordReturn, { sessionToken: adaeze, containerId: target, eirNumber: 'EIR-55120', depot: 'Apapa Yard 3' });
-		const done = await t.action(api.containers.postCharges, { sessionToken: adaeze, containerId: target });
+		await t.mutation(api.containers.recordReturn, {
+			sessionToken: adaeze,
+			containerId: target,
+			eirNumber: 'EIR-55120',
+			depot: 'Apapa Yard 3'
+		});
+		const done = await t.action(api.containers.postCharges, {
+			sessionToken: adaeze,
+			containerId: target
+		});
 		expect(done.status).toBe('settled');
 		expect(done.chargeUnits).toBe(toUnits('90').toString());
 		c = await t.query(api.containers.get, { sessionToken: wanjiru, containerId: target });
@@ -161,13 +226,21 @@ describe('deposit-free flow', () => {
 		const t = await seeded();
 		const adaeze = await signIn(t, 'Adaeze Okafor');
 		const wanjiru = await signIn(t, 'Wanjiru Mwangi');
-		const list = await t.query(api.containers.listForImporter, { sessionToken: wanjiru, filter: { states: ['in_detention'] } });
+		const list = await t.query(api.containers.listForImporter, {
+			sessionToken: wanjiru,
+			filter: { states: ['in_detention'] }
+		});
 		const target = list.find((c) => c.mode === 'depositFree')!;
 		expect(target.detentionDays).toBe(3);
 		expect(target.pulledUnits).toBe(toUnits('135').toString());
-		const r = await t.action(api.accessKeys.revoke, { sessionToken: wanjiru, containerId: target._id });
+		const r = await t.action(api.accessKeys.revoke, {
+			sessionToken: wanjiru,
+			containerId: target._id
+		});
 		expect(r.midFlight).toBe(true);
-		await expect(t.action(api.accessKeys.revoke, { sessionToken: wanjiru, containerId: target._id })).rejects.toThrow(/already revoked/);
+		await expect(
+			t.action(api.accessKeys.revoke, { sessionToken: wanjiru, containerId: target._id })
+		).rejects.toThrow(/already revoked/);
 		await t.action(api.demo.advanceClock, { sessionToken: adaeze, ms: 2 * DAY });
 		const c = await t.query(api.containers.get, { sessionToken: adaeze, containerId: target._id });
 		expect(c.container.detentionDays).toBe(5);
@@ -182,9 +255,15 @@ describe('deposit-free flow', () => {
 		const t = await seeded();
 		const adaeze = await signIn(t, 'Adaeze Okafor');
 		const wanjiru = await signIn(t, 'Wanjiru Mwangi');
-		const list = await t.query(api.containers.listForImporter, { sessionToken: wanjiru, filter: { states: ['in_detention'] } });
+		const list = await t.query(api.containers.listForImporter, {
+			sessionToken: wanjiru,
+			filter: { states: ['in_detention'] }
+		});
 		const target = list.find((c) => c.mode === 'depositFree')!;
-		await t.mutation(internal.sim.revokeKey, { account: target.accessKey!.account, keyId: target.accessKey!.keyAddress });
+		await t.mutation(internal.sim.revokeKey, {
+			account: target.accessKey!.account,
+			keyId: target.accessKey!.keyAddress
+		});
 		await t.action(api.demo.advanceClock, { sessionToken: adaeze, ms: 2 * DAY });
 		const c = await t.query(api.containers.get, { sessionToken: adaeze, containerId: target._id });
 		const failed = c.payments.filter((p) => p.status === 'failed');

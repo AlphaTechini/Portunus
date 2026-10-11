@@ -3,7 +3,12 @@ import { mutation, query } from './_generated/server';
 import { appError, chainMode, productNow, requireImporter, requireLine } from './helpers';
 import { provisionLine } from './orgSetup';
 import { suggestedMode } from '../lib/shared/domain/rules';
-import { DEFAULT_CLEAN_RETURNS_FOR_DEPOSIT_FREE, DEFAULT_MAX_DETENTION_DAYS, DEFAULT_SETTLEMENT_WINDOW_DAYS, DEFAULT_SILENT_GRACE_HOURS } from '../lib/shared/domain/constants';
+import {
+	DEFAULT_CLEAN_RETURNS_FOR_DEPOSIT_FREE,
+	DEFAULT_MAX_DETENTION_DAYS,
+	DEFAULT_SETTLEMENT_WINDOW_DAYS,
+	DEFAULT_SILENT_GRACE_HOURS
+} from '../lib/shared/domain/constants';
 
 /** Line: importers it can send release requests to, with track record and the suggested deposit mode. */
 export const listImporters = query({
@@ -49,7 +54,11 @@ export const listImporters = query({
 						: null,
 					openDisputes,
 					cleanReturnsForDepositFree: threshold,
-					suggestedMode: suggestedMode({ cleanReturns, openDisputes, cleanReturnsForDepositFree: threshold }),
+					suggestedMode: suggestedMode({
+						cleanReturns,
+						openDisputes,
+						cleanReturnsForDepositFree: threshold
+					}),
 					activeContainers: mine.filter((c) => c.state !== 'settled').length,
 					totalContainers: mine.length
 				};
@@ -103,7 +112,8 @@ export const lineSettings = query({
 			org,
 			chainMode: chainMode(),
 			settlementWindowDays: org.settlementWindowDays ?? DEFAULT_SETTLEMENT_WINDOW_DAYS,
-			cleanReturnsForDepositFree: org.cleanReturnsForDepositFree ?? DEFAULT_CLEAN_RETURNS_FOR_DEPOSIT_FREE,
+			cleanReturnsForDepositFree:
+				org.cleanReturnsForDepositFree ?? DEFAULT_CLEAN_RETURNS_FOR_DEPOSIT_FREE,
 			maxDetentionDays: org.maxDetentionDays ?? DEFAULT_MAX_DETENTION_DAYS,
 			silentGraceHours: org.silentGraceHours ?? DEFAULT_SILENT_GRACE_HOURS,
 			depositsAccount: org.depositsAccount ?? null,
@@ -112,9 +122,13 @@ export const lineSettings = query({
 			masterId: org.masterId ?? null,
 			masterRegistered: chainMode() === 'live' && org.masterId !== undefined,
 			receivePolicy: org.receivePolicy ?? null,
-			provisioned: Boolean(org.depositsAccount && org.settlementContract && org.masterId && org.receivePolicy),
+			provisioned: Boolean(
+				org.depositsAccount && org.settlementContract && org.masterId && org.receivePolicy
+			),
 			resolver: resolver ? { orgId: resolver._id, name: resolver.name } : null,
-			resolverChoices: platforms.map((p) => ({ orgId: p._id, name: p.name })).concat([{ orgId: org._id, name: `${org.name} (the line itself)` }]),
+			resolverChoices: platforms
+				.map((p) => ({ orgId: p._id, name: p.name }))
+				.concat([{ orgId: org._id, name: `${org.name} (the line itself)` }]),
 			rateCards: rateCards.sort((x, y) => x.containerType.localeCompare(y.containerType))
 		};
 	}
@@ -135,7 +149,8 @@ export const updateLineSettings = mutation({
 		const patch: Record<string, number | string> = {};
 		const int = (name: string, val: number | undefined, min: number, max: number) => {
 			if (val === undefined) return;
-			if (!Number.isInteger(val) || val < min || val > max) throw appError('INVALID', `${name} must be a whole number from ${min} to ${max}.`);
+			if (!Number.isInteger(val) || val < min || val > max)
+				throw appError('INVALID', `${name} must be a whole number from ${min} to ${max}.`);
 			patch[name] = val;
 		};
 		int('settlementWindowDays', a.settlementWindowDays, 1, 30);
@@ -143,12 +158,14 @@ export const updateLineSettings = mutation({
 		int('maxDetentionDays', a.maxDetentionDays, 1, 120);
 		int('silentGraceHours', a.silentGraceHours, 0, 168);
 		if (a.chargesAddress !== undefined) {
-			if (!/^0x[0-9a-fA-F]{40}$/.test(a.chargesAddress)) throw appError('INVALID', 'The charges address is not valid.');
+			if (!/^0x[0-9a-fA-F]{40}$/.test(a.chargesAddress))
+				throw appError('INVALID', 'The charges address is not valid.');
 			patch.chargesAddress = a.chargesAddress.toLowerCase();
 		}
 		if (a.resolverOrgId !== undefined) {
 			const r = await ctx.db.get(a.resolverOrgId);
-			if (!r || (r.kind !== 'platform' && r._id !== org._id)) throw appError('INVALID', 'Pick the platform or the line itself as resolver.');
+			if (!r || (r.kind !== 'platform' && r._id !== org._id))
+				throw appError('INVALID', 'Pick the platform or the line itself as resolver.');
 			patch.resolverOrgId = r._id;
 		}
 		await ctx.db.patch(org._id, patch);
@@ -164,7 +181,10 @@ export const configureReceivePolicy = mutation({
 		await provisionLine(ctx, org._id, await productNow(ctx));
 		const fresh = await ctx.db.get(org._id);
 		if (!fresh?.receivePolicy) {
-			throw appError('NOT_SUPPORTED', 'This line is not provisioned on-chain yet. Run the live setup script (docs/LIVE-SETUP.md).');
+			throw appError(
+				'NOT_SUPPORTED',
+				'This line is not provisioned on-chain yet. Run the live setup script (docs/LIVE-SETUP.md).'
+			);
 		}
 		return fresh.receivePolicy;
 	}

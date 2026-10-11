@@ -16,7 +16,8 @@ export const list = query({
 });
 
 const units = (name: string, s: string): string => {
-	if (!/^\d+$/.test(s) || BigInt(s) <= 0n) throw appError('INVALID', `${name} must be a positive amount in base units.`);
+	if (!/^\d+$/.test(s) || BigInt(s) <= 0n)
+		throw appError('INVALID', `${name} must be a positive amount in base units.`);
 	return BigInt(s).toString();
 };
 
@@ -30,12 +31,15 @@ export const upsert = mutation({
 	},
 	handler: async (ctx, a) => {
 		const { org } = await requireLine(ctx, a.sessionToken);
-		if (!Number.isInteger(a.freeDays) || a.freeDays < 0 || a.freeDays > 60) throw appError('INVALID', 'Free days must be a whole number from 0 to 60.');
+		if (!Number.isInteger(a.freeDays) || a.freeDays < 0 || a.freeDays > 60)
+			throw appError('INVALID', 'Free days must be a whole number from 0 to 60.');
 		const dailyRateUnits = units('Daily rate', a.dailyRateUnits);
 		const depositUnits = units('Deposit', a.depositUnits);
 		const existing = await ctx.db
 			.query('rateCards')
-			.withIndex('by_line_type', (q) => q.eq('lineOrgId', org._id).eq('containerType', a.containerType))
+			.withIndex('by_line_type', (q) =>
+				q.eq('lineOrgId', org._id).eq('containerType', a.containerType)
+			)
 			.first();
 		if (existing) {
 			await ctx.db.patch(existing._id, { freeDays: a.freeDays, dailyRateUnits, depositUnits });

@@ -40,7 +40,10 @@ export async function envPrefix(ctx: MutationCtx): Promise<number> {
 }
 
 /** The resolver both sides agreed to at onboarding: the line's choice, else the platform, else the line. */
-export async function defaultResolver(ctx: MutationCtx, line: Doc<'organizations'>): Promise<Id<'organizations'>> {
+export async function defaultResolver(
+	ctx: MutationCtx,
+	line: Doc<'organizations'>
+): Promise<Id<'organizations'>> {
 	if (line.resolverOrgId) return line.resolverOrgId;
 	const platform = await ctx.db
 		.query('organizations')
@@ -87,27 +90,38 @@ async function uniqueRequestCode(ctx: MutationCtx): Promise<string> {
 export async function createReleaseRequest(
 	ctx: MutationCtx,
 	a: CreateRequestArgs
-): Promise<{ requestId: Id<'releaseRequests'>; requestCode: string; containerIds: Id<'containers'>[] }> {
+): Promise<{
+	requestId: Id<'releaseRequests'>;
+	requestCode: string;
+	containerIds: Id<'containers'>[];
+}> {
 	const { now } = a;
 	// Always work from the current row: the per-line sequence counter must never be stale.
 	const line = (await ctx.db.get(a.line._id)) ?? a.line;
-	if (line.kind !== 'line') throw appError('FORBIDDEN', 'Only shipping lines create release requests.');
+	if (line.kind !== 'line')
+		throw appError('FORBIDDEN', 'Only shipping lines create release requests.');
 	const importer = await ctx.db.get(a.importerOrgId);
 	if (!importer || importer.kind !== 'importer') throw appError('NOT_FOUND', 'Importer not found.');
 	const bl = a.billOfLading.trim();
 	if (!bl) throw appError('INVALID', 'Enter the bill of lading number.');
 	if (!a.portOfDischarge.trim()) throw appError('INVALID', 'Enter the port of discharge.');
 	if (a.containers.length === 0) throw appError('INVALID', 'Add at least one container.');
-	if (a.containers.length > 40) throw appError('INVALID', 'A request can hold at most 40 containers.');
-	if (!line.masterId) throw appError('INVALID', 'Set up the deposits account in settings before creating requests.');
+	if (a.containers.length > 40)
+		throw appError('INVALID', 'A request can hold at most 40 containers.');
+	if (!line.masterId)
+		throw appError('INVALID', 'Set up the deposits account in settings before creating requests.');
 
 	// Validate numbers and uniqueness.
 	const seen = new Set<string>();
 	const normalized: { number: string; type: ContainerType }[] = [];
 	for (const c of a.containers) {
 		const check = checkContainerNumber(c.number);
-		if (!check.ok) throw appError('INVALID_CONTAINER', `${c.number}: ${check.reason}`, { number: c.number });
-		if (seen.has(check.number)) throw appError('INVALID_CONTAINER', `${check.number} is listed twice.`, { number: check.number });
+		if (!check.ok)
+			throw appError('INVALID_CONTAINER', `${c.number}: ${check.reason}`, { number: c.number });
+		if (seen.has(check.number))
+			throw appError('INVALID_CONTAINER', `${check.number} is listed twice.`, {
+				number: check.number
+			});
 		seen.add(check.number);
 		normalized.push({ number: check.number, type: c.type });
 		if (!a.skipActiveCheck) {
@@ -116,7 +130,9 @@ export async function createReleaseRequest(
 				.withIndex('by_number', (q) => q.eq('number', check.number))
 				.collect();
 			if (clash.some((x) => x.lineOrgId === line._id && x.state !== 'settled')) {
-				throw appError('CONFLICT', `${check.number} already has an open release request.`, { number: check.number });
+				throw appError('CONFLICT', `${check.number} already has an open release request.`, {
+					number: check.number
+				});
 			}
 		}
 	}
@@ -128,7 +144,8 @@ export async function createReleaseRequest(
 		.collect();
 	const cardFor = (t: ContainerType) => cards.find((c) => c.containerType === t);
 	for (const c of normalized) {
-		if (!cardFor(c.type)) throw appError('INVALID', `No rate card for ${c.type}. Add one in settings.`);
+		if (!cardFor(c.type))
+			throw appError('INVALID', `No rate card for ${c.type}. Add one in settings.`);
 	}
 
 	await ensureRelationship(ctx, line, a.importerOrgId, a.mode);
@@ -206,7 +223,10 @@ export async function createReleaseRequest(
 }
 
 /** Recompute the request status from its containers. */
-export async function refreshRequestStatus(ctx: MutationCtx, requestId: Id<'releaseRequests'>): Promise<void> {
+export async function refreshRequestStatus(
+	ctx: MutationCtx,
+	requestId: Id<'releaseRequests'>
+): Promise<void> {
 	const request = await ctx.db.get(requestId);
 	if (!request || request.status === 'cancelled') return;
 	const containers = await ctx.db
@@ -215,7 +235,8 @@ export async function refreshRequestStatus(ctx: MutationCtx, requestId: Id<'rele
 		.collect();
 	let status: Doc<'releaseRequests'>['status'] = 'awaiting_importer';
 	if (containers.length > 0 && containers.every((c) => c.state === 'settled')) status = 'completed';
-	else if (containers.some((c) => c.state !== 'requested' && c.state !== 'awaiting_deposit')) status = 'active';
+	else if (containers.some((c) => c.state !== 'requested' && c.state !== 'awaiting_deposit'))
+		status = 'active';
 	else if (containers.some((c) => BigInt(c.receivedUnits ?? '0') > 0n)) status = 'active';
 	if (status !== request.status) await ctx.db.patch(requestId, { status });
 }
