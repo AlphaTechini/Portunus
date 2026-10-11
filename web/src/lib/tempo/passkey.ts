@@ -84,20 +84,33 @@ export function passkeyRpId(): string {
 function wrap(e: unknown, what: string): PasskeyError {
 	if (e instanceof PasskeyError) return e;
 	// ox wraps the DOMException in its own error; walk the cause chain for the DOM error name.
+	const DOM_NAMES = [
+		'NotAllowedError',
+		'AbortError',
+		'InvalidStateError',
+		'SecurityError',
+		'NotSupportedError'
+	];
 	let name = '';
 	let msg = '';
 	let cur: unknown = e;
 	for (let i = 0; i < 6 && cur && typeof cur === 'object'; i++) {
 		const x = cur as { name?: string; message?: string; cause?: unknown };
-		if (x.name && x.name !== 'Error') name ||= x.name;
 		if (x.message) msg ||= x.message;
-		if (name === 'NotAllowedError' || name === 'AbortError' || name === 'InvalidStateError') break;
+		if (x.name && DOM_NAMES.includes(x.name)) {
+			name = x.name;
+			break;
+		}
 		cur = x.cause;
 	}
 	if (name === 'NotAllowedError' || name === 'AbortError') {
-		return new PasskeyError('CANCELLED', `The passkey prompt was cancelled or timed out (${what}).`, {
-			cause: e
-		});
+		return new PasskeyError(
+			'CANCELLED',
+			`The passkey prompt was cancelled or timed out (${what}).`,
+			{
+				cause: e
+			}
+		);
 	}
 	if (name === 'InvalidStateError') {
 		return new PasskeyError(
@@ -114,11 +127,17 @@ function wrap(e: unknown, what: string): PasskeyError {
 		);
 	}
 	if (name === 'NotSupportedError') {
-		return new PasskeyError('UNSUPPORTED', 'This device does not support the required passkey type.', {
-			cause: e
-		});
+		return new PasskeyError(
+			'UNSUPPORTED',
+			'This device does not support the required passkey type.',
+			{
+				cause: e
+			}
+		);
 	}
-	return new PasskeyError('FAILED', `Passkey ${what} failed${msg ? `: ${msg}` : '.'}`, { cause: e });
+	return new PasskeyError('FAILED', `Passkey ${what} failed${msg ? `: ${msg}` : '.'}`, {
+		cause: e
+	});
 }
 
 /** Rebuilds the (non-serializable) Tempo account for a stored passkey. Signing prompts the user. */
@@ -148,7 +167,8 @@ export async function createPasskey(label: string): Promise<PasskeyCredential> {
 	}
 }
 
-const toChallengeHex = (c: string): Hex => (/^0x[0-9a-fA-F]*$/.test(c) ? (c as Hex) : (stringToHex(c) as Hex));
+const toChallengeHex = (c: string): Hex =>
+	/^0x[0-9a-fA-F]*$/.test(c) ? (c as Hex) : (stringToHex(c) as Hex);
 const pad32 = (n: bigint): Hex => `0x${n.toString(16).padStart(64, '0')}`;
 
 /**

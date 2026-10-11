@@ -30,5 +30,6 @@ export const explorerAddressUrl = (address: string) => `${EXPLORER_URL}/address/
  * Timestamps in Portunus are ms since epoch. The chain uses unix seconds. Callers may pass either to the
  * live helpers: anything below 1e11 is read as seconds (year 5138 in ms, year 1973 in seconds).
  */
-export const toUnixSeconds = (t: number): number => (t < 1e11 ? Math.floor(t) : Math.floor(t / 1000));
+export const toUnixSeconds = (t: number): number =>
+	t < 1e11 ? Math.floor(t) : Math.floor(t / 1000);
 export const toMs = (t: number): number => (t < 1e11 ? Math.floor(t * 1000) : Math.floor(t));

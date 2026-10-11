@@ -55,7 +55,9 @@ async function retry<T>(label: string, fn: () => Promise<T>, tries = 6): Promise
 }
 
 function printOutput(s: ReturnType<typeof loadState>) {
-	console.log('\n=== Convex environment (run from web/, after `npx convex dev` has created a deployment) ===');
+	console.log(
+		'\n=== Convex environment (run from web/, after `npx convex dev` has created a deployment) ==='
+	);
 	console.log('# These contain TESTNET private keys. Never reuse them anywhere else.');
 	for (const l of convexEnvLines(s, { rpcUrl })) console.log(l);
 	console.log('\n=== Public config (non-secret) ===');
@@ -111,18 +113,29 @@ if (args.has('--mine-only')) {
 }
 
 const pub = createLiveClient({ rpcUrl });
-const balanceOf = (account: Address, token: Address = '0x20c0000000000000000000000000000000000000') =>
+const balanceOf = (
+	account: Address,
+	token: Address = '0x20c0000000000000000000000000000000000000'
+) =>
 	retry('balanceOf', () =>
-		pub.readContract({ address: token, abi: Abis.tip20, functionName: 'balanceOf', args: [account] })
+		pub.readContract({
+			address: token,
+			abi: Abis.tip20,
+			functionName: 'balanceOf',
+			args: [account]
+		})
 	);
 
 // ---- health
 const chainId = await retry('chainId', () => pub.getChainId()).catch((e) => {
 	console.error(`Cannot reach ${rpcUrl}: ${describeChainError(e)}`);
-	console.error('This step needs network access to Tempo Moderato. Keys are saved in .state/tempo.json; rerun when online (or use --mine-only to mine the salt offline first).');
+	console.error(
+		'This step needs network access to Tempo Moderato. Keys are saved in .state/tempo.json; rerun when online (or use --mine-only to mine the salt offline first).'
+	);
 	process.exit(2);
 });
-if (chainId !== CHAIN_ID) throw new Error(`RPC ${rpcUrl} is chain ${chainId}, expected ${CHAIN_ID} (Moderato)`);
+if (chainId !== CHAIN_ID)
+	throw new Error(`RPC ${rpcUrl} is chain ${chainId}, expected ${CHAIN_ID} (Moderato)`);
 log('connected to Tempo Moderato, block', (await pub.getBlockNumber()).toString());
 
 // ---- 2. faucet
@@ -177,14 +190,7 @@ if (needDeploy) {
 		operatorClient.deployContract({
 			abi: settlementAbi,
 			bytecode: settlementBytecode,
-			args: [
-				who.deposits!,
-				who.charges!,
-				who.operator!,
-				who.resolver!,
-				ALPHA_USD,
-				BigInt(maxHold)
-			]
+			args: [who.deposits!, who.charges!, who.operator!, who.resolver!, ALPHA_USD, BigInt(maxHold)]
 		})
 	);
 	const rc = await pub.waitForTransactionReceipt({ hash });
@@ -240,7 +246,10 @@ const checks: [string, boolean][] = [
 		'recovery authority is the settlement contract',
 		finalPolicy.recoveryAuthority.toLowerCase() === state.settlement!.toLowerCase()
 	],
-	['master id resolves to the deposits account', master?.toLowerCase() === who.deposits!.toLowerCase()],
+	[
+		'master id resolves to the deposits account',
+		master?.toLowerCase() === who.deposits!.toLowerCase()
+	],
 	[
 		'contract immutables match',
 		onChain.map((x) => x.toLowerCase()).join() ===

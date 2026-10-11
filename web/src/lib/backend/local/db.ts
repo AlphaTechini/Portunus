@@ -3,7 +3,7 @@
  */
 import { cloneValue, compareValues, getField, valuesEqual } from './values.js';
 import { tableOfId } from './ids.js';
-import type { Doc, IndexDef, Tx } from './store.js';
+import type { Doc, IndexDef, TableMap, Tx } from './store.js';
 
 /* ------------------------------ filter builder ----------------------------- */
 
@@ -90,6 +90,9 @@ interface QueryState {
 	limit?: number;
 }
 
+/** Sorted-index cache per immutable committed table snapshot. */
+const sortedCache = new WeakMap<TableMap, Map<string, Doc[]>>();
+
 const IMPLICIT_INDEXES: IndexDef[] = [
 	{ name: 'by_creation_time', fields: ['_creationTime'] },
 	{ name: 'by_id', fields: ['_id'] }
@@ -143,25 +146,39 @@ class QueryImpl {
 		return this.with({ limit: n });
 	}
 
+	/** Docs of the table sorted by the chosen index (shared array when the snapshot is pristine). */
+	private sortedDocs(idx: IndexDef): Doc[] {
+		const { table } = this.s;
+		const fields = idx.fields;
+		const sort = (docs: Doc[]) => {
+			const keyed = docs.map((d) => ({ d, k: fields.map((f) => getField(d, f)) }));
+			keyed.sort((x, y) => {
+				for (let i = 0; i < fields.length; i++) {
+					const c = compareValues(x.k[i], y.k[i]);
+					if (c !== 0) return c;
+				}
+				const c = compareValues(x.d._creationTime, y.d._creationTime);
+				return c !== 0 ? c : compareValues(x.d._id, y.d._id);
+			});
+			return keyed.map((x) => x.d);
+		};
+		const pristine = this.tx.pristine(table);
+		if (!pristine) return sort(this.tx.scan(table));
+		let perTable = sortedCache.get(pristine);
+		if (!perTable) sortedCache.set(pristine, (perTable = new Map()));
+		const key = fields.join('\u0000');
+		let sorted = perTable.get(key);
+		if (!sorted) perTable.set(key, (sorted = sort(Array.from(pristine.values()))));
+		return sorted;
+	}
+
 	/** Materialise matching documents (stored objects, not cloned). */
 	private run(max?: number): Doc[] {
-		const { table, index, steps, order, filters } = this.s;
-		let docs = this.tx.scan(table);
+		const { index, steps, order, filters } = this.s;
 		const idx = index ?? IMPLICIT_INDEXES[0];
-		if (steps.length) docs = docs.filter((d) => matchesRange(d, steps));
-		const fields = idx.fields;
-		// sort by index fields, then _creationTime, then _id
-		const keyed = docs.map((d) => ({ d, k: fields.map((f) => getField(d, f)) }));
-		keyed.sort((x, y) => {
-			for (let i = 0; i < fields.length; i++) {
-				const c = compareValues(x.k[i], y.k[i]);
-				if (c !== 0) return c;
-			}
-			const c = compareValues(x.d._creationTime, y.d._creationTime);
-			return c !== 0 ? c : compareValues(x.d._id, y.d._id);
-		});
-		let out = keyed.map((x) => x.d);
-		if (order === 'desc') out.reverse();
+		let out = this.sortedDocs(idx);
+		if (steps.length) out = out.filter((d) => matchesRange(d, steps));
+		if (order === 'desc') out = out.slice().reverse();
 		if (filters.length) out = out.filter((d) => filters.every((f) => f.ev(d) === true));
 		const lim = Math.min(max ?? Infinity, this.s.limit ?? Infinity);
 		if (lim < out.length) out = out.slice(0, lim);
@@ -268,7 +285,10 @@ function userFields(doc: Doc): Record<string, unknown> {
 	return out;
 }
 
-export function makeDb(tx: Tx, opts: { writable: boolean; system?: boolean } = { writable: true }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type LocalDb = Record<string, any>;
+
+export function makeDb(tx: Tx, opts: { writable: boolean; system?: boolean } = { writable: true }): LocalDb {
 	const env = tx.env;
 	const isSystem = !!opts.system;
 
@@ -387,4 +407,3 @@ export function makeDb(tx: Tx, opts: { writable: boolean; system?: boolean } = {
 	});
 }
 
-export type LocalDb = ReturnType<typeof makeDb>;

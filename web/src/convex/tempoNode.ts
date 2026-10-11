@@ -276,7 +276,7 @@ export const listHeldReceipts = internalAction({
 		}
 		return {
 			receipts: out.map((h, i) => (statuses ? { ...h, status: statuses[i] } : h)),
-			toBlock: scanned.toString(),
+			toBlock: (scanned > head ? head : scanned).toString(),
 			headBlock: head.toString()
 		};
 	}
@@ -390,7 +390,7 @@ export const pullDetention = internalAction({
 					// state read failed too; surface the original error
 				}
 			}
-			throw new Error(`pullDetention failed: ${describeChainError(e)}`);
+			throw new Error(`pullDetention failed: ${describeChainError(e)}`, { cause: e });
 		}
 	}
 });
@@ -448,7 +448,7 @@ export const settle = internalAction({
 						});
 			return await txResultFromReceipt(client, receipt, started);
 		} catch (e) {
-			throw new Error(`settle failed: ${describeChainError(e)}`);
+			throw new Error(`settle failed: ${describeChainError(e)}`, { cause: e });
 		}
 	}
 });
@@ -470,7 +470,7 @@ export const resolveDispute = internalAction({
 			});
 			return await txResultFromReceipt(client, receipt, started);
 		} catch (e) {
-			throw new Error(`resolveDispute failed: ${describeChainError(e)}`);
+			throw new Error(`resolveDispute failed: ${describeChainError(e)}`, { cause: e });
 		}
 	}
 });
@@ -492,7 +492,7 @@ export const returnHeldTransfer = internalAction({
 			});
 			return await txResultFromReceipt(client, r, started);
 		} catch (e) {
-			throw new Error(`returnToSender failed: ${describeChainError(e)}`);
+			throw new Error(`returnToSender failed: ${describeChainError(e)}`, { cause: e });
 		}
 	}
 });
@@ -514,7 +514,7 @@ export const refundAfterDeadline = internalAction({
 			});
 			return await txResultFromReceipt(client, r, started);
 		} catch (e) {
-			throw new Error(`refundAfterDeadline failed: ${describeChainError(e)}`);
+			throw new Error(`refundAfterDeadline failed: ${describeChainError(e)}`, { cause: e });
 		}
 	}
 });

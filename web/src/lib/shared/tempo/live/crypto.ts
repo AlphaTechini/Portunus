@@ -62,7 +62,8 @@ export async function encryptSecret(plaintext: string, rawKey: string): Promise<
 
 export async function decryptSecret(payload: string, rawKey: string): Promise<string> {
 	const [version, ivPart, ctPart] = payload.split('.');
-	if (version !== 'v1' || !ivPart || !ctPart) throw new Error('unrecognised encrypted secret format');
+	if (version !== 'v1' || !ivPart || !ctPart)
+		throw new Error('unrecognised encrypted secret format');
 	const key = await importKey(rawKey);
 	try {
 		const pt = await subtle().decrypt(

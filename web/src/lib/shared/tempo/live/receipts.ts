@@ -25,7 +25,8 @@ export interface HeldReceiptJson {
 	blockedNonce: string;
 	/** bytes32 memo carried by the original transfer. */
 	memo: Hex;
-	blockedReason: 'none' | 'tokenFilter' | 'receivePolicy';
+	/** A held transfer is never 'none'; the codec maps it to 'receivePolicy' defensively. */
+	blockedReason: 'tokenFilter' | 'receivePolicy';
 	txHash: Hex;
 	logIndex: number;
 	blockNumber: string;
@@ -56,7 +57,7 @@ export function heldReceiptFromParts(p: {
 		blockedAtSec: Number(d.blockedAt),
 		blockedNonce: d.blockedNonce.toString(),
 		memo: d.memo,
-		blockedReason: d.blockedReason,
+		blockedReason: d.blockedReason === 'tokenFilter' ? 'tokenFilter' : 'receivePolicy',
 		txHash: p.txHash,
 		logIndex: p.logIndex,
 		blockNumber: p.blockNumber.toString()

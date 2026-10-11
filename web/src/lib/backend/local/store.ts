@@ -121,6 +121,8 @@ export class Store {
 	}
 }
 
+const EMPTY_TABLE: TableMap = new Map();
+
 function chain(tx: Tx): Tx[] {
 	const out: Tx[] = [];
 	for (let t: Tx | null = tx; t; t = t.parent) out.push(t);
@@ -158,6 +160,16 @@ export class Tx {
 		const o = this.lookupOverlay(table, id);
 		if (o !== undefined) return o === null ? undefined : o;
 		return this.base.get(table)?.get(id);
+	}
+
+	/**
+	 * The committed table map if this tx (and its parents) did not touch the table, else null.
+	 * Lets queries reuse a cached sorted index of an immutable snapshot.
+	 */
+	pristine(table: string): TableMap | null {
+		for (let t: Tx | null = this; t; t = t.parent) if (t.overlay.has(table)) return null;
+		this.readTables.add(table);
+		return this.base.get(table) ?? EMPTY_TABLE;
 	}
 
 	/** All visible docs of a table (stored objects, do not mutate). */

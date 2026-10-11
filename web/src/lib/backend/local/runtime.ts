@@ -63,6 +63,17 @@ export interface LocalRuntimeOptions {
 	/** Module names (without extension) to skip, in addition to the built-in rules. */
 	exclude?: (name: string) => boolean;
 	log?: (level: 'info' | 'warn' | 'error', ...args: unknown[]) => void;
+	/**
+	 * Runs once at the end of boot (after the role is known); `ready` waits for it.
+	 * `mutation` here does not wait for `ready` (that would deadlock).
+	 */
+	afterBoot?: (api: BootApi) => Promise<void>;
+}
+
+export interface BootApi {
+	role: 'leader' | 'follower';
+	hasFunction(ref: RefLike): boolean;
+	mutation(ref: RefLike, args?: unknown): Promise<unknown>;
 }
 
 /* ------------------------------ function registry ------------------------------ */
@@ -114,7 +125,7 @@ interface Listener {
 	cb: (value: unknown) => void;
 	errCb?: (error: Error) => void;
 }
-type SubResult = { ok: true; value: unknown } | { ok: false; error: Error };
+type SubResult = { ok: true; value: unknown; cloned?: unknown } | { ok: false; error: Error };
 interface Sub {
 	key: string;
 	entry: FnEntry;
@@ -261,7 +272,8 @@ export class LocalRuntime {
 				continue;
 			}
 			for (const [exp, value] of Object.entries(mod)) {
-				const fn = value as {
+				if (typeof value !== 'function') continue;
+				const fn = value as unknown as {
 					isQuery?: boolean;
 					isMutation?: boolean;
 					isAction?: boolean;
@@ -269,7 +281,7 @@ export class LocalRuntime {
 					_handler?: FnEntry['handler'];
 					exportArgs?: () => string;
 				};
-				if (typeof fn !== 'function' || !fn._handler) continue;
+				if (!fn._handler) continue;
 				const kind: Kind | null = fn.isQuery ? 'query' : fn.isMutation ? 'mutation' : fn.isAction ? 'action' : null;
 				if (!kind) continue;
 				const fname = `${name}:${exp}`;
@@ -283,8 +295,8 @@ export class LocalRuntime {
 			}
 		}
 
-		const sch = schema as { tables?: Record<string, never> } | undefined;
-		if (sch?.tables) this.schemaTables = sch.tables as typeof this.schemaTables;
+		const sch = schema as { tables?: LocalRuntime['schemaTables'] } | undefined;
+		if (sch?.tables) this.schemaTables = sch.tables;
 		const cr = crons as { crons?: Record<string, CronSpec> } | undefined;
 		if (cr?.crons) this.cronSpecs = cr.crons;
 
@@ -321,6 +333,18 @@ export class LocalRuntime {
 
 		this.installUnloadHandler();
 		if (this.role === 'leader') this.onLeaderStart();
+
+		if (this.o.afterBoot) {
+			try {
+				await this.o.afterBoot({
+					role: this.role as 'leader' | 'follower',
+					hasFunction: (ref) => this.hasFunction(ref),
+					mutation: (ref, args) => this.mutationNow(ref, args)
+				});
+			} catch (e) {
+				this.log('error', 'afterBoot failed', e);
+			}
+		}
 	}
 
 	private installUnloadHandler() {
@@ -620,6 +644,10 @@ export class LocalRuntime {
 
 	async mutation(ref: RefLike, args?: unknown): Promise<unknown> {
 		await this.ready;
+		return this.mutationNow(ref, args);
+	}
+
+	private mutationNow(ref: RefLike, args?: unknown): Promise<unknown> {
 		const entry = this.lookup(ref, 'mutation', true);
 		if (this.role === 'leader') return this.execMutation(entry, args);
 		return this.rpc('mutation', entry.name, this.checkArgs(entry, args));
@@ -717,7 +745,7 @@ export class LocalRuntime {
 		const a = (args === undefined ? {} : args) as Record<string, unknown>;
 		const sub = this.subs.get(`${toFunctionName(ref)}|${stableKey(a)}`);
 		if (!sub?.result) return undefined;
-		if (sub.result.ok) return sub.result.value;
+		if (sub.result.ok) return (sub.result.cloned ??= cloneValue(sub.result.value));
 		throw sub.result.error;
 	}
 

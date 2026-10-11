@@ -5,6 +5,8 @@ import { api, fixtureModules, makeRuntime, memoryStorage } from './__fixtures__/
 import { LocalRuntime } from './runtime.js';
 import { compareValues, cloneValue } from './values.js';
 
+import { anyApi } from 'convex/server';
+const anyApiRef = anyApi as any;
 const live: LocalRuntime[] = [];
 function rt(opts: Parameters<typeof makeRuntime>[0] = {}) {
 	const r = makeRuntime(opts);
@@ -105,7 +107,7 @@ describe('queries and indexes', () => {
 					const out: Record<string, unknown> = {};
 					out.gt3lte7 = (await ctx.db.query('items').withIndex('by_qty', (q) => q.gt('qty', 3).lte('qty', 7)).collect()).map((d: any) => d.qty);
 					out.desc = (await ctx.db.query('items').withIndex('by_qty').order('desc').take(2)).map((d: any) => d.qty);
-					out.tagRange = (await ctx.db.query('items').withIndex('by_tag_qty', (q) => q.eq('tag', 'x').gte('qty', 5)).collect()).map((d: any) => d.qty);
+					out.tagRange = (await ctx.db.query('items').withIndex('by_tag_qty', (q: any) => q.eq('tag', 'x').gte('qty', 5)).collect()).map((d: any) => d.qty);
 					out.filter = (await ctx.db.query('items').filter((q) => q.and(q.eq(q.field('tag'), 'x'), q.gt(q.field('qty'), 1))).collect()).map((d: any) => d.title);
 					out.or = (await ctx.db.query('items').filter((q) => q.or(q.eq(q.field('tag'), 'y'), q.not(q.neq(q.field('qty'), 7)))).collect()).map((d: any) => d.title);
 					out.first = (await ctx.db.query('items').withIndex('by_qty').first())?.qty;
@@ -239,6 +241,42 @@ describe('transactions', () => {
 		expect(o.d2._id).toBe(o.id);
 		expect(o.norm).toEqual([o.id, null, null]);
 		expect(o.d3).toBeNull();
+	});
+});
+
+describe('read-your-writes inside a mutation', () => {
+	it('queries in the same transaction see inserts, patches and deletes (no stale index cache)', async () => {
+		const { mutationGeneric: mutation } = await import('convex/server');
+		const mod = {
+			ryw: mutation({
+				args: {},
+				handler: async (ctx) => {
+					const before = (await ctx.db.query('items').withIndex('by_qty').collect()).length;
+					const a = await ctx.db.insert('items', { title: 'a', qty: 5 });
+					const b = await ctx.db.insert('items', { title: 'b', qty: 1 });
+					const afterInsert = (await ctx.db.query('items').withIndex('by_qty').collect()).map((d: any) => d.title);
+					await ctx.db.patch(a, { qty: 0 });
+					const afterPatch = (await ctx.db.query('items').withIndex('by_qty').collect()).map((d: any) => d.title);
+					await ctx.db.delete(b);
+					const afterDelete = (await ctx.db.query('items').withIndex('by_qty').collect()).map((d: any) => d.title);
+					const job = await ctx.scheduler.runAfter(10_000, anyApiRef.app.writeLog, { msg: 'x' });
+					const sys = await ctx.db.system.get(job);
+					return { before, afterInsert, afterPatch, afterDelete, sysState: (sys as any).state.kind, sysName: (sys as any).name };
+				}
+			})
+		};
+		const r = rt({ modules: { ...fixtureModules(), 'probe.ts': mod }, crons: { crons: {} } });
+		const out = (await r.mutation(api.probe.ryw, {})) as any;
+		expect(out).toEqual({
+			before: 0,
+			afterInsert: ['b', 'a'],
+			afterPatch: ['a', 'b'],
+			afterDelete: ['a'],
+			sysState: 'pending',
+			sysName: 'app:writeLog'
+		});
+		// and committed state matches
+		expect(((await r.query(api.app.listItems, {})) as any[]).map((d) => d.title)).toEqual(['a']);
 	});
 });
 

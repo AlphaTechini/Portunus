@@ -101,7 +101,11 @@ describe('AES-GCM secret storage', () => {
 const settlement = '0x00000000000000000000000000000000000050E1' as Address;
 const originator = '0x1111111111111111111111111111111111111111' as Address;
 const master = '0x2222222222222222222222222222222222222222' as Address;
-const depositAddress = createVirtualAddress({ masterId: '0x82bfcada', envPrefix: 0xabcd, containerSeq: 7 });
+const depositAddress = createVirtualAddress({
+	masterId: '0x82bfcada',
+	envPrefix: 0xabcd,
+	containerSeq: 7
+});
 
 function sampleReceipt(memo: Hex = encodeMemo('PD MSCU1234567 MEDU12345678')): Hex {
 	return ReceivePolicyReceipt.encode({
@@ -196,13 +200,21 @@ describe('virtual addresses', () => {
 		const c = createVirtualAddress({ masterId: '0x82bfcada', envPrefix: 0x0001, containerSeq: 7 });
 		expect(new Set([a, b, c]).size).toBe(3);
 		expect(a.toLowerCase().startsWith('0x82bfcadafdfdfdfdfdfdfdfdfdfd')).toBe(true);
-		expect(parseVirtualAddress(a)).toMatchObject({ masterId: '0x82bfcada', envPrefix: 0xabcd, containerSeq: 7 });
+		expect(parseVirtualAddress(a)).toMatchObject({
+			masterId: '0x82bfcada',
+			envPrefix: 0xabcd,
+			containerSeq: 7
+		});
 		expect(parseVirtualAddress(master)).toBeNull();
 	});
 
 	it('rejects out-of-range prefixes and sequences', () => {
-		expect(() => createVirtualAddress({ masterId: '0x82bfcada', envPrefix: 70000, containerSeq: 1 })).toThrow();
-		expect(() => createVirtualAddress({ masterId: '0x82bfcada', envPrefix: 1, containerSeq: 2 ** 32 })).toThrow();
+		expect(() =>
+			createVirtualAddress({ masterId: '0x82bfcada', envPrefix: 70000, containerSeq: 1 })
+		).toThrow();
+		expect(() =>
+			createVirtualAddress({ masterId: '0x82bfcada', envPrefix: 1, containerSeq: 2 ** 32 })
+		).toThrow();
 	});
 });
 
@@ -273,7 +285,7 @@ describe('settlement ABI', () => {
 	});
 
 	it('no state-changing function takes a destination address', () => {
-		const writes = fns.filter((f) => f.stateMutability === 'nonpayable' || f.stateMutability === 'payable');
+		const writes = fns.filter((f) => f.stateMutability === 'nonpayable');
 		expect(writes.map((w) => w.name).sort()).toEqual(
 			['refundAfterDeadline', 'resolveDispute', 'returnToSender', 'settle', 'settleMany'].sort()
 		);

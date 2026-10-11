@@ -17,7 +17,10 @@ export function createVirtualAddress(a: {
 	envPrefix: number;
 	containerSeq: number | bigint;
 }): Address {
-	return VirtualAddress.from({ masterId: a.masterId, userTag: userTagOf(a.envPrefix, a.containerSeq) });
+	return VirtualAddress.from({
+		masterId: a.masterId,
+		userTag: userTagOf(a.envPrefix, a.containerSeq)
+	}).toLowerCase() as Address;
 }
 
 export function parseVirtualAddress(address: string): {

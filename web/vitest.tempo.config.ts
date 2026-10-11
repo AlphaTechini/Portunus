@@ -5,7 +5,11 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
 	test: {
 		environment: 'node',
-		include: ['scripts/**/*.test.ts', 'src/lib/shared/tempo/**/*.test.ts'],
+		include: [
+			'scripts/**/*.test.ts',
+			'src/lib/shared/tempo/**/*.test.ts',
+			'src/lib/tempo/**/*.test.ts'
+		],
 		testTimeout: 60_000
 	}
 });

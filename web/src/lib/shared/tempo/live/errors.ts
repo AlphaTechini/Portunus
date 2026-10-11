@@ -45,7 +45,8 @@ export function keychainErrorOf(e: unknown): KeychainErrorName | null {
 	return null;
 }
 
-export const isLimitExceeded = (e: unknown): boolean => keychainErrorOf(e) === 'SpendingLimitExceeded';
+export const isLimitExceeded = (e: unknown): boolean =>
+	keychainErrorOf(e) === 'SpendingLimitExceeded';
 
 /** The public RPC rate-limits in bursts; viem retries but may give up. */
 export const isRpcRateLimit = (e: unknown): boolean =>

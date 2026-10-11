@@ -138,10 +138,16 @@ export async function authorizeAccessKey(a: {
 }
 
 /** Only the importer's root key (passkey) can revoke an access key; the line can never do this. */
-export async function revokeKey(a: { owner: LiveSigner; keyAddress: Address }): Promise<TxResultJson> {
+export async function revokeKey(a: {
+	owner: LiveSigner;
+	keyAddress: Address;
+}): Promise<TxResultJson> {
 	const client = sponsoredClient(a.owner);
 	const started = Date.now();
-	const { receipt } = await client.accessKey.revokeSync({ accessKey: a.keyAddress, feePayer: true });
+	const { receipt } = await client.accessKey.revokeSync({
+		accessKey: a.keyAddress,
+		feePayer: true
+	});
 	return txResultFromReceipt(readClient(), receipt, started);
 }
 

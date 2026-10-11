@@ -35,7 +35,9 @@ describe('passkey assertion verification', () => {
 	it('rejects a wrong rpId, a wrong challenge and a different key', () => {
 		const a = assert(challenge, 'localhost', privateKey);
 		expect(verifyPasskeyAssertion(a, publicKey, { rpId: 'evil.example' })).toBe(false);
-		expect(verifyPasskeyAssertion({ ...a, challenge: `0x${'00'.repeat(32)}` }, publicKey)).toBe(false);
+		expect(verifyPasskeyAssertion({ ...a, challenge: `0x${'00'.repeat(32)}` }, publicKey)).toBe(
+			false
+		);
 		const other = PublicKey.toHex(P256.getPublicKey({ privateKey: P256.randomPrivateKey() }), {
 			includePrefix: false
 		});
