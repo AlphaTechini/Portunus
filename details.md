@@ -189,10 +189,67 @@ Out: proving cargo condition or contents, customs duties, freight payments betwe
 - Access key call scopes can limit transfers to the line's charges address, with a 1-day recurring limit and an expiry (Tempo docs list per-token limits with a period, recipient scopes and expiry).
 - How local-currency deposits (naira, shillings, pesos, rupees) map to the USD stablecoin, and who bears exchange-rate risk.
 
-## 14. References for Tempo features
+## 14. Backend and scheduling (Convex)
+
+### 14.1 Shape
+- SvelteKit is frontend only, multi-page with SvelteKit routing. It holds no secrets and signs nothing on the server.
+- Convex is the whole backend: database, server functions, scheduling, and all server-side calls to Tempo.
+- The browser talks to Convex for app data (with live updates) and to Tempo directly only when the user signs with their own passkey (paying deposits, authorizing an access key).
+
+### 14.2 What lives in Convex
+| Data | Purpose |
+|---|---|
+| Organizations | Shipping lines and importers, their Tempo addresses, deposits account, charges address |
+| Rate cards | Per line: default free days, daily detention rate and deposit per container type |
+| Release requests | Bill of lading, containers, mode (held or deposit-free), status |
+| Containers | Number, size, virtual deposit address, free-time end, detention accrued, return receipt, settlement window end, state |
+| Payments | Every on-chain event the app cares about (deposit, pull, settlement, refund, held transfer) with transaction hash, amount, memo, timestamp |
+| Access key records | For deposit-free containers: key id, daily cap, recipient scope, expiry, revoked or not (the private key itself is a secret, see 14.5) |
+| Disputes | Container, disputed amount, reason, resolver decision |
+| Track record | Clean returns per importer per line, used to offer deposit-free mode |
+
+Container states: requested, awaiting deposit, deposit held / authorized, released, in free time, in detention, returned, settling, settled, disputed.
+
+### 14.3 Scheduled work (Convex scheduled functions and crons)
+Tempo has no native scheduler, so Convex owns every time-based step.
+
+| Trigger | Scheduled with | What it does |
+|---|---|---|
+| Container released | `runAt` free-time end | Moves the container to detention if not returned; in deposit-free mode, schedules the first daily pull |
+| Each day in detention (deposit-free) | `runAt` +24h, re-scheduled after each run | Pulls one day's detention from the importer's account using the access key, with the container number in the memo |
+| Each day in detention (held) | `runAt` +24h | Updates accrued detention against the deposit (no money moves until settlement) |
+| Return recorded | `runAt` settlement window end | Settles: charges to the line, remainder to the importer, from the guard; revokes the deposit-free key |
+| Access key near expiry | `runAt` expiry minus 1 day | Warns the line and importer |
+| Daily cron | Convex cron, once a day | Backstop sweep: finds any container whose scheduled step was missed or failed and re-runs it |
+
+### 14.4 Calling Tempo from Convex
+- Convex actions call Tempo (Moderato testnet RPC) using viem, in files marked `"use node"` where Node APIs are needed. Actions time out after 10 minutes.
+- Server-side actions: create virtual deposit addresses, configure the line's receive policy and settlement contract, sponsor fees, pull detention with the line's access key, submit settlements and refunds, read guard and access-key state.
+- Mutations record intent first (for example "pull scheduled for container X, day 3"), then the action submits the transaction and a second mutation records the result.
+
+### 14.5 Secrets
+- Held as Convex environment variables or encrypted at rest: the fee sponsor key, the line's access keys for deposit-free containers, the operator key for settlement calls.
+- Never sent to the browser. SvelteKit never sees them.
+
+### 14.6 Failure handling
+- Convex scheduled actions run at most once and are not retried automatically. Every scheduled action records success or failure; failures are retried by the next run or the daily backstop sweep.
+- Every on-chain step is idempotent by design: a second detention pull in the same day is refused by the chain (1-day recurring limit), settlement can only happen once per container (the guard holds one deposit), and refunds check settlement state first.
+- If Tempo RPC is unreachable, the container shows "pending on-chain" and the step is retried; the UI never shows "refunded" or "paid" until the transaction is confirmed.
+
+### 14.7 Live updates
+- Both sides' pages subscribe to Convex queries, so a deposit landing, a detention pull or a refund appears on the other party's screen immediately after the action records it.
+
+### 14.8 Plan limits
+- Convex's free plan includes crons and scheduled functions (exact free-tier limits are not published on the pricing page; demo scale is far below any limit).
+- Vercel's free plan only allows once-a-day crons with up to 59 minutes of drift, and Cloudflare's free plan allows 10 ms of CPU per cron run; neither is needed with Convex scheduling.
+
+## 15. References for Tempo features
 
 - Virtual addresses: https://tempo.xyz/developers/docs/guide/payments/virtual-addresses
 - Receive policies: https://tempo.xyz/blog/receive-policies/
 - Access key permissions: https://v3.viem.sh/tempo/guides/access-keys/permissions
 - Recurring limits and subscriptions: https://tempo.xyz/blog/subscriptions-on-tempo/
 - Reference pattern for guard-held funds: https://github.com/emilbob/held
+- Convex scheduled functions: https://docs.convex.dev/scheduling/scheduled-functions
+- Convex cron jobs: https://docs.convex.dev/scheduling/cron-jobs
+- Convex actions: https://docs.convex.dev/functions/actions
