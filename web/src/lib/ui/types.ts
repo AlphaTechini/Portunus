@@ -98,7 +98,10 @@ export interface NavSection {
 	items: NavItem[];
 }
 
-export type Role = 'line' | 'importer';
+export type Role = 'line' | 'importer' | 'platform';
+
+/** Roles the demo role switch can toggle between. */
+export type SwitchableRole = Exclude<Role, 'platform'>;
 
 export interface Org {
 	id: string;

@@ -60,7 +60,9 @@
 <div class="result {className}" class:compact>
 	{#if finalityMs !== undefined}
 		<span class="final tabular"
-			><Zap size={13} strokeWidth={1.9} aria-hidden="true" />{formatFinality(finalityMs)}</span
+			><Zap size={13} strokeWidth={1.9} aria-hidden="true" />Final in {formatFinality(
+				finalityMs
+			)}</span
 		>
 	{/if}
 	{#if shown}

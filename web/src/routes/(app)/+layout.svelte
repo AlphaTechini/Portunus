@@ -1,9 +1,3 @@
-<script lang="ts" module>
-	import { ROLE_LABEL } from '#lib/ui';
-	// The shell only knows line and importer. The dispute resolver gets its own label.
-	(ROLE_LABEL as Record<string, string>).platform ??= 'Dispute resolver';
-</script>
-
 <script lang="ts">
 	/**
 	 * Authenticated app shell. Everything under (app)/ renders inside this layout, only after:
@@ -15,8 +9,6 @@
 	import { onMount, type Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import Boxes from '@lucide/svelte/icons/boxes';
-	import Flag from '@lucide/svelte/icons/flag';
 	import {
 		AppShell,
 		Button,
@@ -124,16 +116,6 @@
 	const nav: NavSection[] = $derived.by(() => {
 		const disputes = openDisputes.data?.length ?? 0;
 		const held = heldTransfers.data?.length ?? 0;
-		if (app.role === 'platform') {
-			return [
-				{
-					items: [
-						{ label: 'Disputes', href: '/disputes', icon: Flag, badge: disputes || undefined },
-						{ label: 'Containers', href: '/containers', icon: Boxes }
-					]
-				}
-			];
-		}
 		return DEFAULT_NAV[app.role].map((section) => ({
 			...section,
 			items: section.items.map((item) =>
@@ -150,7 +132,7 @@
 	const shellOrg: Org = $derived({
 		id: app.isDemo ? app.user._id : app.org._id,
 		name: app.org.name,
-		role: app.role as Role,
+		role: app.role,
 		location: app.user.name
 	});
 	const shellOrgs: Org[] = $derived(
@@ -172,7 +154,7 @@
 
 {#if gate === 'ok'}
 	<AppShell
-		role={app.role as Role}
+		role={app.role}
 		onRoleChange={canSwitchRole ? (r) => void app.switchRole(r) : undefined}
 		org={shellOrg}
 		orgs={shellOrgs}

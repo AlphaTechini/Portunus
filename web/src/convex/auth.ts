@@ -9,6 +9,16 @@ import { verifyAssertion } from './webauthn';
 const SESSION_MS = 14 * 24 * 60 * 60 * 1000;
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
+/** Organization names in the order the sign-in page lists demo personas. */
+const DEMO_PERSONA_ORDER = [
+	'Meridian Ocean Lines',
+	'Harbourview Foods Ltd',
+	'Savanna Agro Traders',
+	'Pasig Valley Imports',
+	'Kestrel Container Line',
+	'Portunus Resolution Desk'
+];
+
 export function publicUser(u: Doc<'users'>) {
 	return {
 		_id: u._id,
@@ -204,9 +214,18 @@ export const listDemoPersonas = query({
 				blurb: u.blurb ?? org.blurb ?? ''
 			});
 		}
-		const order = { line: 0, importer: 1, platform: 2 } as const;
+		// Demo recording order: the main line first, then the three importers, then the second line
+		// and the resolver. Any other demo org follows, grouped by kind.
+		const kindOrder = { line: 0, importer: 1, platform: 2 } as const;
+		const rank = (p: { orgName: string; orgKind: 'line' | 'importer' | 'platform' }) => {
+			const i = DEMO_PERSONA_ORDER.indexOf(p.orgName);
+			return i >= 0 ? i : DEMO_PERSONA_ORDER.length + kindOrder[p.orgKind];
+		};
 		return out.sort(
-			(x, y) => order[x.orgKind] - order[y.orgKind] || x.orgName.localeCompare(y.orgName)
+			(x, y) =>
+				rank(x) - rank(y) ||
+				kindOrder[x.orgKind] - kindOrder[y.orgKind] ||
+				x.orgName.localeCompare(y.orgName)
 		);
 	}
 });

@@ -76,42 +76,84 @@ async function settlementPreview(ctx: QueryCtx, c: Doc<'containers'>, now: numbe
 	};
 }
 
+/** Everything the container detail page shows. `c` must already be authorized for the caller. */
+async function containerDetail(ctx: QueryCtx, c: Doc<'containers'>) {
+	const view = await containerView(ctx, c);
+	const request = await ctx.db.get(c.requestId);
+	const line = await ctx.db.get(c.lineOrgId);
+	const importer = await ctx.db.get(c.importerOrgId);
+	if (!request || !line || !importer) throw appError('NOT_FOUND', 'Container not found.');
+	const payments = await ctx.db
+		.query('payments')
+		.withIndex('by_container', (q) => q.eq('containerId', c._id))
+		.collect();
+	const events = await ctx.db
+		.query('containerEvents')
+		.withIndex('by_container', (q) => q.eq('containerId', c._id))
+		.collect();
+	const dispute = c.disputeId ? await ctx.db.get(c.disputeId) : null;
+	const now = await productNow(ctx);
+	return {
+		container: view,
+		request,
+		line: publicOrg(line),
+		importer: publicOrg(importer),
+		terms: termsFor(line, request),
+		payments: payments
+			.sort((x, y) => x.timestamp - y.timestamp || x._creationTime - y._creationTime)
+			.map(paymentView),
+		events: events.sort((x, y) => x.at - y.at),
+		accessKey:
+			view.accessKey ?? (c.accessKeyId ? publicKey((await ctx.db.get(c.accessKeyId))!) : null),
+		dispute,
+		preview: await settlementPreview(ctx, c, now),
+		simNow: now
+	};
+}
+
+/**
+ * One container with its request, terms, memo trail, lifecycle events, access key and dispute.
+ * Visible to its line, its importer and, when the container has a dispute, the platform resolver.
+ */
 export const get = query({
 	args: { sessionToken: v.string(), containerId: v.id('containers') },
 	handler: async (ctx, a) => {
 		const s = await requireSession(ctx, a.sessionToken);
 		const c = await loadContainerFor(ctx, s, a.containerId);
-		const view = await containerView(ctx, c);
-		const request = await ctx.db.get(c.requestId);
-		const line = await ctx.db.get(c.lineOrgId);
-		const importer = await ctx.db.get(c.importerOrgId);
-		if (!request || !line || !importer) throw appError('NOT_FOUND', 'Container not found.');
-		const payments = await ctx.db
-			.query('payments')
-			.withIndex('by_container', (q) => q.eq('containerId', c._id))
+		return containerDetail(ctx, c);
+	}
+});
+
+/**
+ * Same shape as `get`, looked up by container number (`/containers/[number]`). Returns null when
+ * the caller cannot see a container with that number. A box can come back on a later trip, so the
+ * newest visible one wins, preferring a trip that is still running.
+ */
+export const byNumber = query({
+	args: { sessionToken: v.string(), number: v.string() },
+	handler: async (ctx, a) => {
+		const s = await requireSession(ctx, a.sessionToken);
+		const number = a.number.replace(/[\s-]/g, '').toUpperCase();
+		if (!number) return null;
+		const rows = await ctx.db
+			.query('containers')
+			.withIndex('by_number', (q) => q.eq('number', number))
 			.collect();
-		const events = await ctx.db
-			.query('containerEvents')
-			.withIndex('by_container', (q) => q.eq('containerId', c._id))
-			.collect();
-		const dispute = c.disputeId ? await ctx.db.get(c.disputeId) : null;
-		const now = await productNow(ctx);
-		return {
-			container: view,
-			request,
-			line: publicOrg(line),
-			importer: publicOrg(importer),
-			terms: termsFor(line, request),
-			payments: payments
-				.sort((x, y) => x.timestamp - y.timestamp || x._creationTime - y._creationTime)
-				.map(paymentView),
-			events: events.sort((x, y) => x.at - y.at),
-			accessKey:
-				view.accessKey ?? (c.accessKeyId ? publicKey((await ctx.db.get(c.accessKeyId))!) : null),
-			dispute,
-			preview: await settlementPreview(ctx, c, now),
-			simNow: now
-		};
+		const visible: Doc<'containers'>[] = [];
+		for (const c of rows) {
+			try {
+				visible.push(await loadContainerFor(ctx, s, c._id));
+			} catch {
+				/* not theirs */
+			}
+		}
+		if (visible.length === 0) return null;
+		visible.sort(
+			(x, y) =>
+				Number(x.state === 'settled') - Number(y.state === 'settled') ||
+				y._creationTime - x._creationTime
+		);
+		return containerDetail(ctx, visible[0]);
 	}
 });
 

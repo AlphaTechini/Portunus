@@ -10,13 +10,13 @@
 	import NetworkBadge from './NetworkBadge.svelte';
 	import ThemeToggle from './ThemeToggle.svelte';
 	import { DEFAULT_NAV, ROLE_LABEL, isActive } from './nav';
-	import type { LiveState, NavSection, Org, Role } from './types';
+	import type { LiveState, NavSection, Org, Role, SwitchableRole } from './types';
 
 	interface Props {
 		/** Current role. Drives the default nav and the role switcher. */
 		role: Role;
 		/** Demo role switch (Line vs Importer). Omit to hide the switcher. */
-		onRoleChange?: (role: Role) => void;
+		onRoleChange?: (role: SwitchableRole) => void;
 		/** Active organization. */
 		org: Org;
 		/** Organizations the user can switch between. */
@@ -136,7 +136,7 @@
 					{ value: 'importer', label: 'Importer' }
 				]}
 				bind:value={roleValue}
-				onchange={(v) => onRoleChange?.(v)}
+				onchange={(v) => onRoleChange?.(v as SwitchableRole)}
 			/>
 		</div>
 	{/if}
@@ -598,6 +598,11 @@
 	.org-avatar.role-importer {
 		background: var(--color-accent-muted);
 		color: var(--color-accent-text);
+	}
+
+	.org-avatar.role-platform {
+		background: var(--color-surface-active);
+		color: var(--color-text);
 	}
 
 	.org-text {

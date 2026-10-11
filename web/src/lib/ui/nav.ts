@@ -10,6 +10,7 @@ import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 import Flag from '@lucide/svelte/icons/flag';
 import Settings from '@lucide/svelte/icons/settings';
 import Inbox from '@lucide/svelte/icons/inbox';
+import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 import type { NavSection, Role } from './types';
 
 export const DEFAULT_NAV: Record<Role, NavSection[]> = {
@@ -17,6 +18,12 @@ export const DEFAULT_NAV: Record<Role, NavSection[]> = {
 		{
 			items: [
 				{ label: 'Dashboard', href: '/line', icon: LayoutDashboard, matchPrefix: false },
+				{
+					label: 'Release requests',
+					href: '/line/requests',
+					icon: ClipboardList,
+					matchPrefix: false
+				},
 				{ label: 'New release request', href: '/line/requests/new', icon: FilePlus },
 				{ label: 'Containers', href: '/containers', icon: Boxes }
 			]
@@ -46,12 +53,22 @@ export const DEFAULT_NAV: Record<Role, NavSection[]> = {
 			label: 'Settlement',
 			items: [{ label: 'Disputes', href: '/disputes', icon: Flag }]
 		}
+	],
+	// The dispute resolver (platform operator) only sees disputes and containers.
+	platform: [
+		{
+			items: [
+				{ label: 'Disputes', href: '/disputes', icon: Flag },
+				{ label: 'Containers', href: '/containers', icon: Boxes }
+			]
+		}
 	]
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
 	line: 'Shipping line',
-	importer: 'Importer'
+	importer: 'Importer',
+	platform: 'Dispute resolver'
 };
 
 export function isActive(href: string, path: string, matchPrefix = true): boolean {

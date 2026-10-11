@@ -157,6 +157,7 @@
 	}
 
 	.scroller {
+		position: relative; /* contains visually hidden header labels so they cannot widen the page */
 		overflow-x: auto;
 	}
 

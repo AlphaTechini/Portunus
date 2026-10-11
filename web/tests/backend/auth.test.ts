@@ -246,14 +246,7 @@ describe('passkey auth', () => {
 		const t = await seeded();
 		const personas = await t.query(api.auth.listDemoPersonas, {});
 		expect(personas.map((p) => p.name)).toContain('Adaeze Okafor');
-		expect(personas.map((p) => p.orgKind)).toEqual([
-			'line',
-			'line',
-			'importer',
-			'importer',
-			'importer',
-			'platform'
-		]);
+		expect(personas).toHaveLength(6);
 		const status = await t.query(api.system.status, {});
 		expect(status).toMatchObject({
 			chainMode: 'sim',
@@ -265,5 +258,28 @@ describe('passkey auth', () => {
 		const me = await t.query(api.auth.me, { sessionToken: tok });
 		expect(me!.org.name).toBe('Pasig Valley Imports');
 		expect(await t.query(api.auth.me, { sessionToken: 'bogus' })).toBeNull();
+	});
+});
+
+describe('demo persona order', () => {
+	it('lists personas in demo recording order', async () => {
+		const t = await seeded();
+		const personas = await t.query(api.auth.listDemoPersonas, {});
+		expect(personas.map((p) => p.name)).toEqual([
+			'Adaeze Okafor',
+			'Tunde Bakare',
+			'Wanjiru Mwangi',
+			'Carlo Reyes',
+			'Joseph Otieno',
+			'Resolution Desk'
+		]);
+		expect(personas.map((p) => p.orgKind)).toEqual([
+			'line',
+			'importer',
+			'importer',
+			'importer',
+			'line',
+			'platform'
+		]);
 	});
 });
