@@ -93,6 +93,7 @@ describe('held flow end to end', () => {
 			damageUnits: '0'
 		});
 		expect(settled.status).toBe('settled');
+		expect(settled.finalityMs).toBeGreaterThanOrEqual(450);
 		expect(settled.chargeUnits).toBe(toUnits('225').toString());
 		expect(settled.refundUnits).toBe(toUnits('1775').toString());
 
@@ -119,6 +120,61 @@ describe('held flow end to end', () => {
 });
 
 describe('deposit-free flow', () => {
+	it('is only offered to eligible importers (same rule as suggestedMode)', async () => {
+		const t = await seeded();
+		const adaeze = await signIn(t, 'Adaeze Okafor');
+		const tunde = await signIn(t, 'Tunde Bakare');
+		const harbourview = await importerOrg(t, 'Harbourview Foods Ltd');
+		const savanna = await importerOrg(t, 'Savanna Agro Traders');
+		const importers = await t.query(api.orgs.listImporters, { sessionToken: adaeze });
+		expect(importers.find((i) => i.orgId === harbourview)!.suggestedMode).toBe('held');
+		expect(importers.find((i) => i.orgId === savanna)!.suggestedMode).toBe('depositFree');
+
+		const args = (importerOrgId: Id<'organizations'>) => ({
+			sessionToken: adaeze,
+			importerOrgId,
+			billOfLading: 'MRDNLOS99777',
+			portOfDischarge: 'Apapa, Lagos',
+			mode: 'depositFree' as const,
+			containers: [{ number: newNumber(), type: '20GP' as const }]
+		});
+		const err = await t.mutation(api.releaseRequests.create, args(harbourview)).catch((e) => e);
+		expect(err.data).toMatchObject({ code: 'NOT_ELIGIBLE' });
+		expect(err.data.message).toMatch(/clean return.*needs 3.*held deposit/);
+		// Nothing was created for the refused attempt.
+		const before = await t.query(api.releaseRequests.listForImporter, { sessionToken: tunde });
+		expect(before.some((r) => r.billOfLading === 'MRDNLOS99777')).toBe(false);
+		// A held request is always fine, an eligible importer gets deposit-free.
+		await t.mutation(api.releaseRequests.create, { ...args(harbourview), mode: 'held' });
+		const ok = await t.mutation(api.releaseRequests.create, args(savanna));
+		expect(ok.requestCode).toBeTruthy();
+
+		// An open dispute makes an otherwise clean importer ineligible.
+		await t.run(async (ctx) => {
+			const line = (await ctx.db.query('organizations').collect()).find(
+				(o) => o.name === 'Meridian Ocean Lines'
+			)!;
+			const c = (await ctx.db.query('containers').collect()).find(
+				(x) => x.importerOrgId === savanna
+			)!;
+			const user = (await ctx.db.query('users').collect()).find((x) => x.orgId === savanna)!;
+			await ctx.db.insert('disputes', {
+				containerId: c._id,
+				lineOrgId: line._id,
+				importerOrgId: savanna,
+				resolverOrgId: line._id,
+				openedBy: user._id,
+				openedAt: Date.now(),
+				status: 'open',
+				disputedUnits: '1000000',
+				reason: 'test'
+			});
+		});
+		const err2 = await t.mutation(api.releaseRequests.create, args(savanna)).catch((e) => e);
+		expect(err2.data).toMatchObject({ code: 'NOT_ELIGIBLE' });
+		expect(err2.data.message).toMatch(/open dispute/);
+	});
+
 	it('authorize -> pulls -> refused second pull -> return -> settle -> key revoked', async () => {
 		const t = await seeded();
 		const adaeze = await signIn(t, 'Adaeze Okafor');
@@ -214,6 +270,7 @@ describe('deposit-free flow', () => {
 			containerId: target
 		});
 		expect(done.status).toBe('settled');
+		expect(done.finalityMs).toBeGreaterThanOrEqual(450); // the key revocation transaction
 		expect(done.chargeUnits).toBe(toUnits('90').toString());
 		c = await t.query(api.containers.get, { sessionToken: wanjiru, containerId: target });
 		expect(c.container.state).toBe('settled');

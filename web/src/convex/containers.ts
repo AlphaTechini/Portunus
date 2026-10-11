@@ -411,6 +411,7 @@ export const settleMany = action({
 		settled: number;
 		skipped: number;
 		txHash: string | null;
+		finalityMs: number | null;
 	}> => {
 		if (a.containerIds.length === 0) throw appError('INVALID', 'Select at least one container.');
 		const actor = await ctx.runQuery(internal.containers.authLine, a);
@@ -424,7 +425,8 @@ export const settleMany = action({
 			outcomes,
 			settled: done.length,
 			skipped: outcomes.length - done.length,
-			txHash: done.find((o) => o.txHash)?.txHash ?? null
+			txHash: done.find((o) => o.txHash)?.txHash ?? null,
+			finalityMs: done.find((o) => o.finalityMs !== undefined)?.finalityMs ?? null
 		};
 	}
 });

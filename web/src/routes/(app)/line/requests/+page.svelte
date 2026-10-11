@@ -16,8 +16,7 @@
 		type TableColumn
 	} from '#lib/ui';
 	import { useAuthedQuery } from '#lib/backend';
-	import { api, errorMessage, lineRequestHref, units } from '#lib/app';
-	import ModeBadge from '#lib/app/line/ModeBadge.svelte';
+	import { ModeBadge, api, errorMessage, lineRequestHref, units } from '#lib/app';
 	import { headlineState, stateSummary } from '#lib/app/line/lineStatus.ts';
 
 	const requests = useAuthedQuery(api.releaseRequests.listForLine, {});

@@ -27,6 +27,7 @@ describe('held transfers (wrong token / unknown sender)', () => {
 			heldTransferId: wrong._id
 		});
 		expect(r.txHash).toMatch(/^0x[0-9a-f]{64}$/);
+		expect(r.finalityMs).toBeGreaterThanOrEqual(450);
 		expect((await balance(beta)) - before).toBe(toUnits('250'));
 
 		const after = await t.query(api.heldTransfers.list, { sessionToken: adaeze });

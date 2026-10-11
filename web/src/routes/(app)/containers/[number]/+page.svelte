@@ -154,7 +154,8 @@
 							? `, ${formatMoney(units(r.refundUnits ?? '0'))} refunded to ${c.importerName}`
 							: ''
 					}`,
-					txHash: r.txHash ? app.displayHash(r.txHash) : undefined
+					txHash: r.txHash ? app.displayHash(r.txHash) : undefined,
+					finalityMs: r.finalityMs
 				});
 			}
 		} catch (e) {
@@ -973,6 +974,7 @@
 			number={c.number}
 			releasedAt={c.releasedAt}
 			windowDays={d.terms.settlementWindowDays}
+			graceHours={d.terms.silentGraceHours}
 		/>
 		<DisputeModal
 			bind:open={disputeOpen}

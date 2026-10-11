@@ -32,6 +32,8 @@ export interface SettleOutcome {
 	refundUnits?: string;
 	disputedUnits?: string;
 	txHash?: string;
+	/** Time to finality of the settlement transaction (ms), as for deposits. */
+	finalityMs?: number;
 	/** Hold on: the access key has to be revoked by the importer (live). */
 	revokePending?: boolean;
 	reason?: string;
@@ -232,6 +234,7 @@ export async function executeSettlements(
 					refundUnits: p.refundUnits,
 					disputedUnits: p.disputedUnits,
 					txHash: res.tx.txHash,
+					finalityMs: res.tx.finalityMs,
 					cappedByDeposit: p.cappedByDeposit
 				});
 			}
@@ -268,6 +271,7 @@ export async function executeSettlements(
 		}
 		const revoke = await chainRevokeKey(ctx, { account: df.account, keyAddress: df.keyAddress });
 		const revokePending = !revoke.ok;
+		const closing = damageTx ?? (revoke.ok ? revoke.tx : null);
 		await ctx.runMutation(internal.settlement.finishDepositFree, {
 			plan: p,
 			damageTx,
@@ -282,7 +286,9 @@ export async function executeSettlements(
 			chargeUnits: p.chargeUnits,
 			refundUnits: '0',
 			revokePending,
-			txHash: damageTx?.txHash
+			// The damage pull if there was one, else the key revocation: the transaction that closed it.
+			txHash: closing?.txHash,
+			finalityMs: closing?.finalityMs
 		});
 	}
 	return outcomes;

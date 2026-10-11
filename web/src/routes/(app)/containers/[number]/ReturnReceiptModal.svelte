@@ -14,11 +14,20 @@
 		number: string;
 		releasedAt?: number;
 		windowDays: number;
+		/** The line's silent-line grace period (hours after the return date). */
+		graceHours: number;
 		ondone?: () => void;
 	}
-	let { open = $bindable(), containerId, number, releasedAt, windowDays, ondone }: Props = $props();
+	let {
+		open = $bindable(),
+		containerId,
+		number,
+		releasedAt,
+		windowDays,
+		graceHours,
+		ondone
+	}: Props = $props();
 
-	const GRACE_HOURS = 24;
 	const clock = useProductNow(30_000);
 	const submitReceipt = useAuthedMutation(api.containers.submitReturnReceipt);
 
@@ -33,7 +42,7 @@
 		const d = new Date(ms);
 		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 	};
-	const latestDay = $derived(isoDay(clock.value - GRACE_HOURS * 3_600_000));
+	const latestDay = $derived(isoDay(clock.value - graceHours * 3_600_000));
 	const earliestDay = $derived(releasedAt ? isoDay(releasedAt) : undefined);
 
 	$effect(() => {
@@ -53,7 +62,7 @@
 		date: !date
 			? 'Pick the return date.'
 			: date > latestDay
-				? `The return must be at least ${GRACE_HOURS} hours old. The line still has time to record it.`
+				? `The return must be at least ${graceHours} ${graceHours === 1 ? 'hour' : 'hours'} old. The line still has time to record it.`
 				: earliestDay && date < earliestDay
 					? 'The return date is before the container was released.'
 					: ''
@@ -94,7 +103,8 @@
 	>
 		<p class="rule">
 			Use this only if the line has not recorded the return. The return date must be at least
-			{GRACE_HOURS} hours old. The line then has {formatDays(windowDays)} to contest the receipt, or the
+			{graceHours}
+			{graceHours === 1 ? 'hour' : 'hours'} old. The line then has {formatDays(windowDays)} to contest the receipt, or the
 			settlement and refund proceed.
 		</p>
 		<Field label="Return receipt number (EIR)" error={touched ? errors.eir : ''}>

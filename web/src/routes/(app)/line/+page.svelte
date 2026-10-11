@@ -34,7 +34,9 @@
 	} from '#lib/ui';
 	import { useAuthedQuery } from '#lib/backend';
 	import {
+		ModeBadge,
 		ProductCountdown,
+		SeriesChart,
 		api,
 		containerHref,
 		errorMessage,
@@ -43,8 +45,6 @@
 		units,
 		useApp
 	} from '#lib/app';
-	import ModeBadge from '#lib/app/line/ModeBadge.svelte';
-	import SeriesChart from '#lib/app/line/SeriesChart.svelte';
 	import { headlineState, unitsToUsd } from '#lib/app/line/lineStatus.ts';
 
 	const app = useApp();

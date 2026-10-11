@@ -120,6 +120,7 @@ export const resolve = action({
 		toLineUnits: string;
 		toImporterUnits: string;
 		txHashes: string[];
+		finalityMs: number | null;
 	}> => {
 		const { actor, userId } = await ctx.runQuery(internal.disputes.resolvePlan, {
 			sessionToken: a.sessionToken,
@@ -154,7 +155,8 @@ export const resolve = action({
 			disputeId: a.disputeId,
 			toLineUnits: plan.toLineUnits,
 			toImporterUnits: plan.toImporterUnits,
-			txHashes: txs.map((t) => t.tx.txHash)
+			txHashes: txs.map((t) => t.tx.txHash),
+			finalityMs: txs.length > 0 ? Math.max(...txs.map((t) => t.tx.finalityMs)) : null
 		};
 	}
 });

@@ -35,7 +35,7 @@
 		useApp
 	} from '#lib/app';
 	import { accrued, detentionDaysAt, settlementAmounts } from '#lib/shared/domain/rules.ts';
-	import ModeBadge from './ModeBadge.svelte';
+	import ModeBadge from '../ModeBadge.svelte';
 	import SplitBar from './SplitBar.svelte';
 	import { parseUsdToUnits, unitsToInput, type LineContainer } from './lineStatus.ts';
 
@@ -393,6 +393,7 @@
 					{#if outcome.txHash}
 						<ChainResult
 							txHash={outcome.txHash}
+							finalityMs={outcome.finalityMs}
 							toastTitle={heldMode ? 'Refund in seconds' : 'Settled'}
 							toastDescription={`${formatMoney(units(outcome.chargeUnits ?? '0'))} to ${c.lineName}${heldMode ? `, ${formatMoney(units(outcome.refundUnits ?? '0'))} refunded to ${c.importerName}` : ''}.`}
 						/>

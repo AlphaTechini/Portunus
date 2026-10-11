@@ -3,7 +3,11 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { DatabaseReader } from './_generated/server';
 import { chainMode } from './helpers';
 import { makeSimStore } from './simStore';
-import { ALPHA_USD, DEFAULT_SETTLEMENT_WINDOW_DAYS } from '../lib/shared/domain/constants';
+import {
+	ALPHA_USD,
+	DEFAULT_SETTLEMENT_WINDOW_DAYS,
+	DEFAULT_SILENT_GRACE_HOURS
+} from '../lib/shared/domain/constants';
 import { u } from '../lib/shared/domain/money';
 
 export type AccessKeyView = Omit<Doc<'accessKeys'>, 'encPrivKey'>;
@@ -100,6 +104,8 @@ export function termsFor(line: Doc<'organizations'>, request: Doc<'releaseReques
 		mode: request.mode,
 		settlementWindowDays: line.settlementWindowDays ?? DEFAULT_SETTLEMENT_WINDOW_DAYS,
 		maxDetentionDays: line.maxDetentionDays ?? 30,
+		/** Hours after the return date before an importer may submit the receipt themselves. */
+		silentGraceHours: line.silentGraceHours ?? DEFAULT_SILENT_GRACE_HOURS,
 		refundRule:
 			request.mode === 'held'
 				? 'Your deposit is held by the Tempo protocol guard, not by the line. When the empty is returned and the line records it, any remainder after detention and damage refunds to you automatically, no later than the end of the settlement window.'

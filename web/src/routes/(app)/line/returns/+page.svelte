@@ -35,6 +35,7 @@
 	import { useAuthedAction, useAuthedQuery } from '#lib/backend';
 	import {
 		ChainResult,
+		ModeBadge,
 		ProductCountdown,
 		api,
 		containerHref,
@@ -45,7 +46,6 @@
 		useDemoPageActions
 	} from '#lib/app';
 	import { accrued, detentionDaysAt, settlementAmounts } from '#lib/shared/domain/rules.ts';
-	import ModeBadge from '#lib/app/line/ModeBadge.svelte';
 	import { useNarrow } from '#lib/app/line/useNarrow.svelte.ts';
 	import RecordReturnDrawer from '#lib/app/line/RecordReturnDrawer.svelte';
 	import SettleDrawer from '#lib/app/line/SettleDrawer.svelte';
@@ -379,6 +379,7 @@
 						{#if batch.txHash}
 							<ChainResult
 								txHash={batch.txHash}
+								finalityMs={batch.finalityMs ?? undefined}
 								tag
 								toastTitle="Batch transaction settled"
 								toastDescription="{batch.settled} containers settled in one transaction."

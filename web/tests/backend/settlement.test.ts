@@ -114,6 +114,8 @@ describe('settlement window and caps', () => {
 			toUnits('900').toString()
 		]);
 		expect(a.cappedByDeposit).toBe(false);
+		expect(a.finalityMs).toBeGreaterThanOrEqual(450);
+		expect(a.finalityMs).toBeLessThan(550);
 
 		// 40 days late: detention is capped at maxDetentionDays (30) and at the deposit (1200).
 		await t.action(api.demo.advanceClock, { sessionToken: adaeze, ms: 7 * DAY + 40 * DAY });
@@ -189,6 +191,7 @@ describe('settlement window and caps', () => {
 			containerId: id
 		});
 		expect(accepted.status).toBe('settled');
+		expect(accepted.finalityMs).toBeGreaterThanOrEqual(450);
 		c = await t.query(api.containers.get, { sessionToken: carlo, containerId: id });
 		expect(c.container.chargesUnits).toBe(toUnits('200').toString());
 		expect(c.container.refundUnits).toBe(toUnits('1800').toString());
@@ -215,6 +218,8 @@ describe('settlement window and caps', () => {
 		}
 		const r = await t.action(api.containers.settleMany, { sessionToken: adaeze, containerIds });
 		expect(r.settled).toBe(3);
+		expect(r.finalityMs).toBeGreaterThanOrEqual(450);
+		expect(r.outcomes.every((o) => (o.finalityMs ?? 0) >= 450)).toBe(true);
 		const hashes = new Set<string>();
 		for (const id of containerIds) {
 			const c = await t.query(api.containers.get, { sessionToken: carlo, containerId: id });
@@ -255,6 +260,7 @@ describe('disputes', () => {
 			reason: 'Returned on the last free day'
 		});
 		expect(opened.status).toBe('disputed');
+		expect(opened.finalityMs).toBeGreaterThanOrEqual(450);
 		// undisputed charge 30.00 to the line, 50.00 held, refund 2120.00 immediately
 		expect(opened.chargeUnits).toBe(toUnits('80').toString());
 		expect(opened.refundUnits).toBe(toUnits('2120').toString());
@@ -307,6 +313,7 @@ describe('disputes', () => {
 			toLineUnits: toUnits('20').toString(),
 			note: 'Half day granted'
 		});
+		expect(res.finalityMs).toBeGreaterThanOrEqual(450);
 		expect([res.toLineUnits, res.toImporterUnits]).toEqual([
 			toUnits('20').toString(),
 			toUnits('30').toString()

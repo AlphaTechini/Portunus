@@ -35,6 +35,7 @@
 	} from '#lib/ui';
 	import { useAuthedMutation, useAuthedQuery } from '#lib/backend';
 	import {
+		ModeBadge,
 		ProductCountdown,
 		api,
 		containerHref,
@@ -43,7 +44,6 @@
 		units
 	} from '#lib/app';
 	import CoverageBar from '#lib/app/line/CoverageBar.svelte';
-	import ModeBadge from '#lib/app/line/ModeBadge.svelte';
 	import { headlineState } from '#lib/app/line/lineStatus.ts';
 
 	let narrow = $state(false);

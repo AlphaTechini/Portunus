@@ -49,6 +49,18 @@ describe('containers.byNumber', () => {
 		expect(JSON.stringify(viaLine)).not.toContain('encPrivKey');
 	});
 
+	it("shows the importer the line's silent-line grace hours in the terms", async () => {
+		const t = await seeded();
+		const adaeze = await signIn(t, 'Adaeze Okafor');
+		const tunde = await signIn(t, 'Tunde Bakare');
+		const { number } = await numberOf(t, (c) => c.state === 'returned');
+		const terms = async () =>
+			(await t.query(api.containers.byNumber, { sessionToken: tunde, number }))!.terms;
+		expect((await terms()).silentGraceHours).toBe(24);
+		await t.mutation(api.orgs.updateLineSettings, { sessionToken: adaeze, silentGraceHours: 48 });
+		expect((await terms()).silentGraceHours).toBe(48);
+	});
+
 	it('accepts a formatted number and is case-insensitive', async () => {
 		const t = await seeded();
 		const adaeze = await signIn(t, 'Adaeze Okafor');

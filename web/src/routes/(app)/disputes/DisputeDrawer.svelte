@@ -211,6 +211,7 @@
 				{#if outcome.txHashes[0]}
 					<ChainResult
 						txHash={outcome.txHashes[0]}
+						finalityMs={outcome.finalityMs ?? undefined}
 						toastTitle="Dispute resolved"
 						toastDescription="The settlement contract released the held funds."
 						tag

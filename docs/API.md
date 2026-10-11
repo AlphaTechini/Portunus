@@ -23,7 +23,7 @@ Source of truth is the code in `web/src/convex/`. This is a summary written by t
 - `rateCards.list`, `rateCards.upsert({ containerType, freeDays, dailyRateUnits, depositUnits })`
 
 ## releaseRequests
-- `create({ importerOrgId, billOfLading, vessel?, voyage?, portOfDischarge, mode, containers:[{number,type}] })` -> `{ requestId, requestCode, containerIds }` (ISO 6346 validated; virtual address per container)
+- `create({ importerOrgId, billOfLading, vessel?, voyage?, portOfDischarge, mode, containers:[{number,type}] })` -> `{ requestId, requestCode, containerIds }` (ISO 6346 validated; virtual address per container). `mode:'depositFree'` is refused with `NOT_ELIGIBLE` unless the importer has the line's threshold of clean returns and no open disputes (same rule as `orgs.listImporters` `suggestedMode`)
 - `get({ requestId? | requestCode? })` -> `{ request, line, importer, containers: ContainerView[], terms, totals:{depositUnits, receivedUnits, missingUnits, dailyRateUnits, containersTotal, containersCovered}, payerAddress, balanceUnits|null } | null`
 - `listForLine`, `listForImporter` -> summaries with `containerCount, byState, depositTotalUnits, receivedTotalUnits`
 - `issueReleaseOrder({ requestId })` (line) -> `{ released: Id[], blocked: [{ containerId, number, reason, missingUnits? }] }`
@@ -46,14 +46,14 @@ Source of truth is the code in `web/src/convex/`. This is a summary written by t
   - `preview` = `{ detentionDays, accruedUnits, damageUnits, maxChargeUnits, refundUnits, pulledUnits, uncollectedUnits }`
 - `listForLine`, `listForImporter({ filter?:{ states?, mode?, requestId?, search? } })` -> `ContainerView[]`
 - `recordReturn({ containerId, eirNumber, date?, depot })` (line), `submitReturnReceipt(...)` (importer, silent-line rule), `contestReturnReceipt({ containerId, note? })` (line)
-- `postCharges({ containerId, damageUnits?, note?, settleNow? })` (action) -> `SettleOutcome { containerId, number, status:'settled'|'disputed'|'posted'|'failed'|'skipped', chargeUnits?, refundUnits?, disputedUnits?, txHash?, revokePending?, cappedByDeposit?, reason?, code? }`
-- `acceptCharges({ containerId })` (importer action), `settleMany({ containerIds })` (action) -> `{ outcomes, settled, skipped, txHash|null }`, `triggerSettlement({ containerId })` (either; WINDOW_OPEN before window end)
+- `postCharges({ containerId, damageUnits?, note?, settleNow? })` (action) -> `SettleOutcome { containerId, number, status:'settled'|'disputed'|'posted'|'failed'|'skipped', chargeUnits?, refundUnits?, disputedUnits?, txHash?, finalityMs?, revokePending?, cappedByDeposit?, reason?, code? }`
+- `acceptCharges({ containerId })` (importer action), `settleMany({ containerIds })` (action) -> `{ outcomes, settled, skipped, txHash|null, finalityMs|null }`, `triggerSettlement({ containerId })` (either; WINDOW_OPEN before window end)
 
 ## disputes
-- `open({ containerId, disputedUnits, reason, evidence? })` (importer action), `resolve({ disputeId, toLineUnits, note })` (resolver action), `list({ status? })` (rows incl. `containerNumber, importerName, lineName, escrowUnits, canResolve, decision`), `get({ disputeId })`
+- `open({ containerId, disputedUnits, reason, evidence? })` (importer action), `resolve({ disputeId, toLineUnits, note })` (resolver action -> `{ disputeId, toLineUnits, toImporterUnits, txHashes, finalityMs|null }`), `list({ status? })` (rows incl. `containerNumber, importerName, lineName, escrowUnits, canResolve, decision`), `get({ disputeId })`
 
 ## other
-- `heldTransfers.list({ status? })`, `heldTransfers.returnToSender({ heldTransferId })` (action)
+- `heldTransfers.list({ status? })`, `heldTransfers.returnToSender({ heldTransferId })` (action -> `{ heldTransferId, txHash, finalityMs }`)
 - `dashboard.importer` -> `{ now, cashHeldUnits, cashFreedThisMonthUnits, cashFreedTotalUnits, avgReturnToRefundMs|null, refundCount, awaitingDeposit, inFreeTime, inDetention, awaitingSettlement, disputed, settled, containersTotal, depositFree:{activeKeys, dailyCapTotalUnits}, detentionPaidUnits, upcoming, recent, series:{cashHeldPerDay, refundsPerDay} }` (series: 30 x `{ day, t, valueUnits }`)
 - `dashboard.line` -> `{ now, depositsHeldUnits, depositFreeExposureUnits, depositFreeUncollectedUnits, activeKeys, dailyCapTotalUnits, pastFreeTime, inFreeTime, awaitingDeposit, awaitingAuthorization, readyToRelease, awaitingSettlement, settled, detentionCollectedUnits, detentionCollectedLast30Units, refundsDue:[{containerId, number, importerName, deadline, amountUnits, overdue}], overdueRefunds, heldTransfers:{count, units}, openDisputes, compliance:{settledCount, avgReturnToRefundMs, maxReturnToRefundMs, settlementWindowDays}, recent, series }`
 - `notifications.list({ limit?, unreadOnly? })` -> `{ unread, items }`, `notifications.markRead({ ids? })`
@@ -66,5 +66,5 @@ Source of truth is the code in `web/src/convex/`. This is a summary written by t
 - Detention days = floor((min(now, returnedAt) - freeTimeEnd)/day) + 1, capped at maxDetentionDays; accrued = min(days x rate, deposit).
 - `postCharges` settles immediately by default; `settleNow:false` posts for importer review (accept or dispute).
 - Disputes only in held mode, once, while `returned` and window open.
-- Silent line: importer can submit a receipt once the return date is >= `silentGraceHours` (24h) old.
+- Silent line: importer can submit a receipt once the return date is >= `silentGraceHours` (default 24h) old; the line's value is in `terms.silentGraceHours` on `containers.get`, `containers.byNumber` and `releaseRequests.get`.
 - Live revocation after deposit-free settlement: pending until importer revokes with passkey (`revokeRequestedAt`).
