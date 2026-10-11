@@ -43,7 +43,12 @@ export default defineConfig({
 		viewport: { width: 1440, height: 900 },
 		launchOptions: executablePath ? { executablePath } : {}
 	},
-	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } }],
+	projects: [
+		{
+			name: 'chromium',
+			use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } }
+		}
+	],
 	webServer: {
 		command: 'npm run dev -- --port 5173 --host localhost',
 		url: 'http://localhost:5173',

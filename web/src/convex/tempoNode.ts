@@ -1,4 +1,4 @@
-"use node";
+'use node';
 // Live Tempo actions (Moderato testnet). Only reached when TEMPO_MODE=live; BACKEND's chain.ts calls these
 // via `internal.tempoNode.*`. All results are JSON-safe: bigint values are decimal strings, timestamps are ms.
 //
@@ -6,11 +6,11 @@
 // PORTUNUS_SETTLEMENT, PORTUNUS_CHARGES, PORTUNUS_MASTER_ID, VA_ENV_PREFIX, optional TEMPO_RPC_URL,
 // optional TEMPO_RESOLVER_KEY (defaults to the operator key), LINE_DEPOSITS_KEY (setup only).
 // See docs/LIVE-SETUP.md.
-import { v } from "convex/values";
-import { generatePrivateKey } from "viem/accounts";
-import { parseAbiItem } from "viem";
-import { Abis, Account, Actions } from "viem/tempo";
-import { internalAction } from "./_generated/server";
+import { v } from 'convex/values';
+import { generatePrivateKey } from 'viem/accounts';
+import { parseAbiItem } from 'viem';
+import { Abis, Account, Actions } from 'viem/tempo';
+import { internalAction } from './_generated/server';
 import {
 	ALPHA_USD,
 	CHAIN_ID,
@@ -33,8 +33,8 @@ import {
 	type HeldReceiptJson,
 	type Hex,
 	type TxResultJson
-} from "../lib/shared/tempo/live";
-import { settlementAbi } from "../lib/shared/tempo/settlementAbi";
+} from '../lib/shared/tempo/live';
+import { settlementAbi } from '../lib/shared/tempo/settlementAbi';
 
 export type { HeldReceiptJson, TxResultJson };
 
@@ -52,25 +52,25 @@ function need(name: string): string {
 }
 const opt = (name: string): string | undefined => process.env[name] || undefined;
 
-const rpcUrl = () => opt("TEMPO_RPC_URL") ?? DEFAULT_RPC_URL;
+const rpcUrl = () => opt('TEMPO_RPC_URL') ?? DEFAULT_RPC_URL;
 const publicClient = () => createLiveClient({ rpcUrl: rpcUrl() });
-const sponsorAccount = () => Account.fromSecp256k1(need("TEMPO_SPONSOR_KEY") as Hex);
-const operatorAccount = () => Account.fromSecp256k1(need("TEMPO_OPERATOR_KEY") as Hex);
+const sponsorAccount = () => Account.fromSecp256k1(need('TEMPO_SPONSOR_KEY') as Hex);
+const operatorAccount = () => Account.fromSecp256k1(need('TEMPO_OPERATOR_KEY') as Hex);
 const resolverAccount = () =>
-	Account.fromSecp256k1((opt("TEMPO_RESOLVER_KEY") ?? need("TEMPO_OPERATOR_KEY")) as Hex);
-const settlementAddress = () => need("PORTUNUS_SETTLEMENT") as Address;
+	Account.fromSecp256k1((opt('TEMPO_RESOLVER_KEY') ?? need('TEMPO_OPERATOR_KEY')) as Hex);
+const settlementAddress = () => need('PORTUNUS_SETTLEMENT') as Address;
 
 /** Gas per settled receipt: claim + up to two transferWithMemo. Explicit gas avoids estimation flakiness. */
 const GAS_PER_SETTLEMENT = 2_000_000n;
 const MAX_CHUNKS_PER_CALL = 100;
 
-const STATUS_NAMES = ["None", "Settled", "Disputed", "Returned"] as const;
+const STATUS_NAMES = ['None', 'Settled', 'Disputed', 'Returned'] as const;
 export type SettlementStatus = (typeof STATUS_NAMES)[number];
 
-type LimitExceeded = { error: "SpendingLimitExceeded"; remainingUnits: string; periodEnd: number };
+type LimitExceeded = { error: 'SpendingLimitExceeded'; remainingUnits: string; periodEnd: number };
 
 const TransferBlockedEvent = parseAbiItem(
-	"event TransferBlocked(address indexed token, address indexed receiver, uint64 indexed blockedNonce, uint256 amount, uint8 receiptVersion, bytes receipt)"
+	'event TransferBlocked(address indexed token, address indexed receiver, uint64 indexed blockedNonce, uint256 amount, uint8 receiptVersion, bytes receipt)'
 );
 
 async function accessKeyState(a: { account: Address; keyAddress: Address; token?: Address }) {
@@ -103,7 +103,10 @@ export const health = internalAction({
 	}> => {
 		try {
 			const client = publicClient();
-			const [chainId, blockNumber] = await Promise.all([client.getChainId(), client.getBlockNumber()]);
+			const [chainId, blockNumber] = await Promise.all([
+				client.getChainId(),
+				client.getBlockNumber()
+			]);
 			return {
 				ok: chainId === CHAIN_ID,
 				chainId,
@@ -129,21 +132,21 @@ export const publicConfig = internalAction({
 		missing: string[];
 	}> => {
 		const required = [
-			"TEMPO_SPONSOR_KEY",
-			"TEMPO_OPERATOR_KEY",
-			"ACCESS_KEY_ENC_KEY",
-			"PORTUNUS_SETTLEMENT",
-			"PORTUNUS_CHARGES",
-			"PORTUNUS_MASTER_ID",
-			"VA_ENV_PREFIX"
+			'TEMPO_SPONSOR_KEY',
+			'TEMPO_OPERATOR_KEY',
+			'ACCESS_KEY_ENC_KEY',
+			'PORTUNUS_SETTLEMENT',
+			'PORTUNUS_CHARGES',
+			'PORTUNUS_MASTER_ID',
+			'VA_ENV_PREFIX'
 		];
-		const prefix = opt("VA_ENV_PREFIX");
+		const prefix = opt('VA_ENV_PREFIX');
 		return {
 			chainId: CHAIN_ID,
 			rpcUrl: rpcUrl(),
-			settlement: opt("PORTUNUS_SETTLEMENT") ?? null,
-			charges: opt("PORTUNUS_CHARGES") ?? null,
-			masterId: opt("PORTUNUS_MASTER_ID") ?? null,
+			settlement: opt('PORTUNUS_SETTLEMENT') ?? null,
+			charges: opt('PORTUNUS_CHARGES') ?? null,
+			masterId: opt('PORTUNUS_MASTER_ID') ?? null,
 			vaEnvPrefix: prefix === undefined ? null : Number(prefix),
 			missing: required.filter((n) => !process.env[n])
 		};
@@ -166,7 +169,7 @@ export const getBalance = internalAction({
 		const amount = await publicClient().readContract({
 			address: (token ?? ALPHA_USD) as Address,
 			abi: Abis.tip20,
-			functionName: "balanceOf",
+			functionName: 'balanceOf',
 			args: [account as Address]
 		});
 		return { amountUnits: amount.toString() };
@@ -189,7 +192,7 @@ export const confirmDeposits = internalAction({
 			timeout: 30_000,
 			checkReplacement: false
 		});
-		if (receipt.status !== "success") throw new Error(`transaction ${txHash} reverted`);
+		if (receipt.status !== 'success') throw new Error(`transaction ${txHash} reverted`);
 		const held = heldReceiptsFromTxReceipt(receipt);
 		return depositsAccount
 			? held.filter((h) => h.receiver.toLowerCase() === depositsAccount.toLowerCase())
@@ -230,7 +233,9 @@ export const listHeldReceipts = internalAction({
 		const client = publicClient();
 		const head = await client.getBlockNumber();
 		let from = BigInt(fromBlock);
-		const budget = BigInt(Math.min(maxBlocks ?? Number.MAX_SAFE_INTEGER, Number(MAX_LOG_RANGE) * MAX_CHUNKS_PER_CALL));
+		const budget = BigInt(
+			Math.min(maxBlocks ?? Number.MAX_SAFE_INTEGER, Number(MAX_LOG_RANGE) * MAX_CHUNKS_PER_CALL)
+		);
 		const limit = from + budget - 1n < head ? from + budget - 1n : head;
 		const out: HeldReceiptJson[] = [];
 		let scanned = from - 1n;
@@ -260,17 +265,17 @@ export const listHeldReceipts = internalAction({
 			from = to + 1n;
 		}
 		let statuses: SettlementStatus[] | null = null;
-		const settlement = opt("PORTUNUS_SETTLEMENT") as Address | undefined;
+		const settlement = opt('PORTUNUS_SETTLEMENT') as Address | undefined;
 		if (settlement && out.length) {
 			statuses = await Promise.all(
 				out.map(async (h) => {
 					const s = await client.readContract({
 						address: settlement,
 						abi: settlementAbi,
-						functionName: "statusOf",
+						functionName: 'statusOf',
 						args: [h.id]
 					});
-					return STATUS_NAMES[s] ?? "None";
+					return STATUS_NAMES[s] ?? 'None';
 				})
 			);
 		}
@@ -293,10 +298,10 @@ export const settlementStatuses = internalAction({
 				const s = await client.readContract({
 					address,
 					abi: settlementAbi,
-					functionName: "statusOf",
+					functionName: 'statusOf',
 					args: [id as Hex]
 				});
-				return STATUS_NAMES[s] ?? "None";
+				return STATUS_NAMES[s] ?? 'None';
 			})
 		);
 	}
@@ -313,7 +318,7 @@ export const createAccessKey = internalAction({
 		const account = Account.fromSecp256k1(privateKey);
 		return {
 			keyAddress: account.address,
-			encPrivKey: await encryptSecret(privateKey, need("ACCESS_KEY_ENC_KEY"))
+			encPrivKey: await encryptSecret(privateKey, need('ACCESS_KEY_ENC_KEY'))
 		};
 	}
 });
@@ -352,13 +357,17 @@ export const pullDetention = internalAction({
 		const token = (a.token ?? ALPHA_USD) as Address;
 		const owner = a.account as Address;
 		const amount = BigInt(a.amountUnits);
-		const privateKey = (await decryptSecret(a.encPrivKey, need("ACCESS_KEY_ENC_KEY"))) as Hex;
+		const privateKey = (await decryptSecret(a.encPrivKey, need('ACCESS_KEY_ENC_KEY'))) as Hex;
 		const lineKey = Account.fromSecp256k1(privateKey, { access: owner });
 		const keyAddress = lineKey.accessKeyAddress;
 
 		const asLimitError = async (): Promise<LimitExceeded> => {
 			const st = await accessKeyState({ account: owner, keyAddress, token });
-			return { error: "SpendingLimitExceeded", remainingUnits: st.remainingUnits, periodEnd: st.periodEnd };
+			return {
+				error: 'SpendingLimitExceeded',
+				remainingUnits: st.remainingUnits,
+				periodEnd: st.periodEnd
+			};
 		};
 
 		if (a.precheck) {
@@ -379,7 +388,7 @@ export const pullDetention = internalAction({
 			return await txResultFromReceipt(client, receipt, started);
 		} catch (e) {
 			const kind = keychainErrorOf(e);
-			if (kind === "SpendingLimitExceeded") return asLimitError();
+			if (kind === 'SpendingLimitExceeded') return asLimitError();
 			if (kind === null) {
 				// Unknown failure: if the key is live and has less left than we asked for, the limit is the cause.
 				try {
@@ -397,7 +406,8 @@ export const pullDetention = internalAction({
 
 /** Estimation-time reverts surface as a generic failure; treat these as "limit-like" for the fallback above. */
 const isLimitLike = (e: unknown) =>
-	isLimitExceeded(e) || /execution reverted|revert|simulation|estimate/i.test(String((e as Error)?.message));
+	isLimitExceeded(e) ||
+	/execution reverted|revert|simulation|estimate/i.test(String((e as Error)?.message));
 
 // ---------------------------------------------------------------------------------------------------------------
 // settlement contract (operator)
@@ -414,7 +424,7 @@ const settleItem = v.object({
 export const settle = internalAction({
 	args: { items: v.array(settleItem) },
 	handler: async (_ctx, { items }): Promise<TxResultJson> => {
-		if (items.length === 0) throw new Error("settle: no items");
+		if (items.length === 0) throw new Error('settle: no items');
 		const client = createAccountClient({ rpcUrl: rpcUrl(), account: operatorAccount() });
 		const started = Date.now();
 		const address = settlementAddress();
@@ -426,7 +436,7 @@ export const settle = internalAction({
 				items.length === 1
 					? await client.writeContractSync({
 							...common,
-							functionName: "settle",
+							functionName: 'settle',
 							args: [
 								items[0].receipt as Hex,
 								BigInt(items[0].chargeUnits),
@@ -437,7 +447,7 @@ export const settle = internalAction({
 						})
 					: await client.writeContractSync({
 							...common,
-							functionName: "settleMany",
+							functionName: 'settleMany',
 							args: [
 								items.map((i) => i.receipt as Hex),
 								items.map((i) => BigInt(i.chargeUnits)),
@@ -463,7 +473,7 @@ export const resolveDispute = internalAction({
 			const receipt = await client.writeContractSync({
 				address: settlementAddress(),
 				abi: settlementAbi,
-				functionName: "resolveDispute",
+				functionName: 'resolveDispute',
 				args: [a.receipt as Hex, BigInt(a.toLineUnits), normalizeMemo(a.memo)],
 				feePayer: sponsorAccount(),
 				gas: GAS_PER_SETTLEMENT
@@ -485,7 +495,7 @@ export const returnHeldTransfer = internalAction({
 			const r = await client.writeContractSync({
 				address: settlementAddress(),
 				abi: settlementAbi,
-				functionName: "returnToSender",
+				functionName: 'returnToSender',
 				args: [receipt as Hex],
 				feePayer: sponsorAccount(),
 				gas: GAS_PER_SETTLEMENT
@@ -507,7 +517,7 @@ export const refundAfterDeadline = internalAction({
 			const r = await client.writeContractSync({
 				address: settlementAddress(),
 				abi: settlementAbi,
-				functionName: "refundAfterDeadline",
+				functionName: 'refundAfterDeadline',
 				args: [receipt as Hex],
 				feePayer: sponsorAccount(),
 				gas: GAS_PER_SETTLEMENT

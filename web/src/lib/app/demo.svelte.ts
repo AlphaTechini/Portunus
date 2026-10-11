@@ -126,8 +126,9 @@ export function useDemoActions() {
 					}
 					toast.success('Demo data reset', { description: 'Pick a persona to start again.' });
 					await goto('/signin');
-				} finally {
+				} catch (e) {
 					app.signingOut = false;
+					throw e;
 				}
 				return true;
 			})

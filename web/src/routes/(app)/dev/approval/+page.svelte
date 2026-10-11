@@ -4,6 +4,7 @@
 	 * Page agents: this is the reference for how to call `app.approve` and render `ChainResult`.
 	 */
 	import { dev } from '$app/env';
+	import { page } from '$app/state';
 	import ShieldX from '@lucide/svelte/icons/shield-x';
 	import { Button, Card, EmptyState, PageHeader } from '#lib/ui';
 	import {
@@ -15,7 +16,8 @@
 	} from '#lib/app';
 
 	const app = useApp();
-	const payloadHash = `0x${'ab'.repeat(32)}`;
+	// `?hash=0x...` lets tests sign a real payload hash from deposits.preview.
+	const payloadHash = $derived(page.url.searchParams.get('hash') ?? `0x${'ab'.repeat(32)}`);
 	let result = $state<ApprovalResult | null>(null);
 	let note = $state('');
 	let busy = $state(false);

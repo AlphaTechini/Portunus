@@ -161,8 +161,9 @@ export class AppState {
 			/* the token may already be gone */
 		}
 		clearSession();
+		// `signingOut` stays true on purpose: the layout that watches it is torn down by this
+		// navigation, and resetting it earlier makes the guard add a `next` parameter.
 		await goto('/signin');
-		this.signingOut = false;
 	}
 
 	/** Demo only: become another persona (new session) and land on `to` (default: their home). */

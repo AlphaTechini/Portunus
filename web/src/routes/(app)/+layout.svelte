@@ -71,11 +71,12 @@
 
 	$effect(() => {
 		if (gate === 'anon') {
+			// Signing out (or resetting the demo) navigates by itself; do not race it.
+			if (app.signingOut) return;
 			// A token that auth.me rejects is stale: drop it.
 			if (token && me.data === null) clearSession();
 			const next = `${page.url.pathname}${page.url.search}`;
-			const to =
-				app.signingOut || next === '/' ? '/signin' : `/signin?next=${encodeURIComponent(next)}`;
+			const to = next === '/' ? '/signin' : `/signin?next=${encodeURIComponent(next)}`;
 			void goto(to, { replace: true });
 		} else if (gate === 'redirect') {
 			void goto(app.home, { replace: true });

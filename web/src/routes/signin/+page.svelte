@@ -324,7 +324,7 @@
 						<div class="row2">
 							<Field label="You are a">
 								<SegmentedControl
-									label="Organization type"
+									label="Account type"
 									fullWidth
 									disabled={busy}
 									options={[
@@ -758,11 +758,5 @@
 		border-top: 1px solid var(--color-border);
 		font-size: var(--text-xs);
 		color: var(--color-text-tertiary);
-	}
-
-	@media (min-width: 480px) {
-		.row2 {
-			grid-template-columns: 1fr 1fr;
-		}
 	}
 </style>

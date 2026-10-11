@@ -36,6 +36,9 @@ export default defineConfig(
 	{
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
-		rules: {}
+		rules: {
+			// The app is served from the site root (no `paths.base`), so links and goto() need no resolve().
+			'svelte/no-navigation-without-resolve': 'off'
+		}
 	}
 );

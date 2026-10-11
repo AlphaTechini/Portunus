@@ -59,7 +59,7 @@
 	}
 </script>
 
-<svelte:window onkeydown={onWindowKey} />
+<svelte:window onkeydowncapture={onWindowKey} />
 
 {#if visible}
 	<aside
@@ -69,6 +69,21 @@
 		bind:this={root}
 		data-testid="demo-controls"
 	>
+		<button
+			type="button"
+			class="toggle"
+			bind:this={toggle}
+			aria-expanded={open}
+			aria-controls={open ? `demo-panel-${uid}` : undefined}
+			onclick={() => setOpen(!open)}
+			data-testid="demo-toggle"
+		>
+			<SlidersHorizontal size={14} strokeWidth={1.75} aria-hidden="true" />
+			<span>Demo</span>
+			<span class="sep" aria-hidden="true"></span>
+			<span class="t tabular">{formatDateTime(now).slice(-5)}</span>
+			<span class="sr-only">{open ? 'Collapse' : 'Expand'} demo controls</span>
+		</button>
 		{#if open}
 			<div class="panel" id="demo-panel-{uid}">
 				<header class="head">
@@ -178,22 +193,6 @@
 				</div>
 			</div>
 		{/if}
-
-		<button
-			type="button"
-			class="toggle"
-			bind:this={toggle}
-			aria-expanded={open}
-			aria-controls={open ? `demo-panel-${uid}` : undefined}
-			onclick={() => setOpen(!open)}
-			data-testid="demo-toggle"
-		>
-			<SlidersHorizontal size={14} strokeWidth={1.75} aria-hidden="true" />
-			<span>Demo</span>
-			<span class="sep" aria-hidden="true"></span>
-			<span class="t tabular">{formatDateTime(now).slice(-5)}</span>
-			<span class="sr-only">{open ? 'Collapse' : 'Expand'} demo controls</span>
-		</button>
 	</aside>
 
 	<Modal
@@ -224,7 +223,8 @@
 		bottom: var(--space-4);
 		z-index: var(--z-dropdown);
 		display: flex;
-		flex-direction: column;
+		/* Toggle comes first in the DOM (tab order), the panel opens above it. */
+		flex-direction: column-reverse;
 		align-items: flex-end;
 		gap: var(--space-2);
 		max-width: calc(100vw - var(--space-8));
