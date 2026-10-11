@@ -26,18 +26,25 @@ async function frame(name: string) {
 	await page.screenshot({ path: join(OUT, `${name}.png`) });
 }
 
+/** Open or close the floating demo panel (it remembers its state across reloads and resets). */
+async function demoPanel(open: boolean) {
+	const toggle = page.getByTestId('demo-toggle');
+	if ((await toggle.getAttribute('aria-expanded')) !== String(open)) await toggle.click();
+	await expect(toggle).toHaveAttribute('aria-expanded', String(open));
+}
+
 /** Text of the first visible Tempo label button (they carry the label and TIP in their name). */
 const tempoLabel = (re: RegExp) => page.getByRole('button', { name: re }).first();
 
 // Created in step 1 and carried through the later steps.
 const held = { bl: 'MRDNLOS27001', numbers: [mrdu(920001), mrdu(920002), mrdu(920003)] };
 const free = { bl: 'MRDNLOS27002', number: mrdu(920011) };
+const problems: string[] = [];
 let heldRequestId = '';
 let heldImporterPath = '';
 let freeImporterPath = '';
 
 test.describe.configure({ mode: 'serial' });
-test.use({ colorScheme: 'light', viewport: { width: 1440, height: 810 } });
 
 test.beforeAll(async ({ browser }) => {
 	context = await browser.newContext({
@@ -45,14 +52,9 @@ test.beforeAll(async ({ browser }) => {
 		viewport: { width: 1440, height: 810 }
 	});
 	page = await context.newPage();
-	page.on('pageerror', (e) => {
-		throw e;
-	});
+	page.on('pageerror', (e) => problems.push(`uncaught: ${e.message}`));
 	page.on('console', (m) => {
-		// A chain refusal is logged by design; any other error is a bug.
-		if (m.type() === 'error' && !/SpendingLimitExceeded/.test(m.text())) {
-			throw new Error(`console error: ${m.text()}`);
-		}
+		if (m.type() === 'error') problems.push(`console error: ${m.text()}`);
 	});
 });
 
@@ -64,11 +66,13 @@ test.afterEach(async ({}, testInfo) => {
 	if (testInfo.status !== testInfo.expectedStatus) {
 		await page.screenshot({ path: testInfo.outputPath('failure.png') }).catch(() => {});
 	}
+	// No step may leave an uncaught exception or a console error behind.
+	expect(problems.splice(0)).toEqual([]);
 });
 
 test('00 fresh data: reset the local database', async () => {
 	await signInAs(page, 'adaeze');
-	await page.getByTestId('demo-toggle').click();
+	await demoPanel(true);
 	await page.getByRole('button', { name: 'Reset demo data' }).click();
 	await page
 		.getByRole('dialog', { name: 'Reset demo data?' })
@@ -77,6 +81,7 @@ test('00 fresh data: reset the local database', async () => {
 	await expect(page).toHaveURL(/\/signin$/);
 	// Fresh seed: the held transfers and the seeded requests are exactly the shipped ones.
 	await signInAs(page, 'adaeze');
+	await demoPanel(false);
 	await page.goto('/line/held');
 	await expect(page.getByRole('tab', { name: /Held/ })).toContainText('2');
 });
@@ -209,7 +214,7 @@ test('4 container detail: free time ends, a detention pull appears, a second sam
 	await expect(page.getByText('Deposit-free').first()).toBeVisible();
 	await frame('11-container-free-time-countdown');
 
-	await page.getByTestId('demo-toggle').click();
+	await demoPanel(true);
 	await page.getByRole('button', { name: /Jump to end of free time/ }).click();
 	await expect(page.getByText('In detention').first()).toBeVisible();
 	const trail = page.getByTestId('memo-trail');
@@ -226,7 +231,7 @@ test('4 container detail: free time ends, a detention pull appears, a second sam
 	).toBeVisible();
 	await expect(trail.getByText(/SpendingLimitExceeded: second pull on day \d+ refused/)).toBeVisible();
 	await frame('13-container-second-pull-refused');
-	await page.getByTestId('demo-toggle').click();
+	await demoPanel(false);
 });
 
 test('5 line: record the return and settle; settlement contract, refund in seconds, access key revoked', async () => {
@@ -281,12 +286,12 @@ test('5 line: record the return and settle; settlement contract, refund in secon
 test('6 held transfers: a stranger sends the wrong token; it is held and returned', async () => {
 	await page.goto('/line/held');
 	await expect(page.getByRole('tab', { name: /Held/ })).toContainText('2');
-	await page.getByTestId('demo-toggle').click();
+	await demoPanel(true);
 	await page.getByRole('button', { name: /Simulate a stranger transfer \(BetaUSD\)/ }).click();
 	await expect(page.getByRole('tab', { name: /Held/ })).toContainText('3');
 	await expect(page.getByRole('table').getByText('Wrong token').first()).toBeVisible();
 	await expect(tempoLabel(/Held, not lost/)).toBeVisible();
-	await page.getByTestId('demo-toggle').click();
+	await demoPanel(false);
 	await frame('18-line-held-transfers-wrong-token');
 
 	await page.getByTestId('return-to-sender').first().click();
