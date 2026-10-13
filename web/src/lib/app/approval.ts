@@ -17,13 +17,15 @@ export interface ApprovalArg {
 	};
 }
 
-export interface ApprovalResult {
+export interface ApprovalResult<T = unknown> {
 	/** Hand this to the mutation/action as `approval`. */
 	approval: ApprovalArg;
 	approvedWith: 'passkey' | 'demo';
+	/** What `live()` returned, when the request ran on the live chain. */
+	live?: T;
 }
 
-export interface ApprovalRequest {
+export interface ApprovalRequest<T = unknown> {
 	/** The `payloadHash` returned by the matching preview/prepare query. This is what the passkey signs. */
 	payloadHash: string;
 	/** Sheet title. Default "Approve with passkey". */
@@ -40,6 +42,12 @@ export interface ApprovalRequest {
 	confirmLabel?: string;
 	/** Passkey button second line. */
 	confirmSublabel?: string;
+	/**
+	 * Live chain only: signs and submits the real transaction with the person's passkey. When set and
+	 * the chain is live, this replaces the separate approval prompt, so the person sees one prompt per
+	 * transaction and the on-chain transaction is the proof.
+	 */
+	live?: () => Promise<T>;
 }
 
-export type RequestApproval = (req: ApprovalRequest) => Promise<ApprovalResult>;
+export type RequestApproval = <T = unknown>(req: ApprovalRequest<T>) => Promise<ApprovalResult<T>>;

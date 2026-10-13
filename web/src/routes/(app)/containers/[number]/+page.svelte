@@ -166,9 +166,10 @@
 	}
 
 	useDemoPageActions(() => {
-		if (!app.isSim || !c) return [];
+		if (!c) return [];
 		const acts = [];
-		if ((c.state === 'in_free_time' || c.state === 'released') && c.freeTimeEndsAt) {
+		// The clock only moves on the simulated chain; the second pull is a real transaction either way.
+		if (app.isSim && (c.state === 'in_free_time' || c.state === 'released') && c.freeTimeEndsAt) {
 			acts.push({
 				id: 'jump',
 				label: 'Jump to end of free time',
@@ -177,13 +178,14 @@
 				onclick: () => demo.jumpToFreeTimeEnd(c._id)
 			});
 		}
-		acts.push({
-			id: 'day',
-			label: 'Advance 1 day',
-			hint: 'Runs every step that becomes due',
-			busy: demo.busy === 'advance',
-			onclick: () => demo.advanceClock(DAY_MS)
-		});
+		if (app.isSim)
+			acts.push({
+				id: 'day',
+				label: 'Advance 1 day',
+				hint: 'Runs every step that becomes due',
+				busy: demo.busy === 'advance',
+				onclick: () => demo.advanceClock(DAY_MS)
+			});
 		if (isLine && c.mode === 'depositFree' && c.state === 'in_detention') {
 			acts.push({
 				id: 'second',
@@ -907,6 +909,7 @@
 									containerId={c._id}
 									number={c.number}
 									lineName={c.lineName}
+									keyAddress={key.keyAddress}
 									dailyLimitUnits={key.dailyLimitUnits}
 								/>
 							</div>

@@ -147,8 +147,11 @@
 					}))
 			: []
 	);
+	// Demo personas, or a passkey account presenting both sides with a demo line (see switchRole).
 	const canSwitchRole = $derived(
-		app.isDemo && ['line', 'importer'].every((r) => app.personas.some((p) => p.orgKind === r))
+		(app.isDemo || app.hasPasskey) &&
+			app.status?.demoMode !== false &&
+			(['line', 'importer'] as const).every((r) => r === app.role || app.canReach(r))
 	);
 </script>
 

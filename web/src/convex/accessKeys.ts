@@ -361,12 +361,20 @@ export const recordRevoked = internalMutation({
  * browser first; the server then verifies the key is revoked on-chain.
  */
 export const revoke = action({
-	args: { sessionToken: v.string(), containerId: v.id('containers') },
+	args: {
+		sessionToken: v.string(),
+		containerId: v.id('containers'),
+		/** Live: the browser's revoke transaction, kept as the proof on the key's record. */
+		txHash: v.optional(v.string())
+	},
 	handler: async (
 		ctx,
 		a
 	): Promise<{ revoked: true; txHash: string | null; midFlight: boolean }> => {
-		const plan = await ctx.runQuery(internal.accessKeys.revokePlan, a);
+		const plan = await ctx.runQuery(internal.accessKeys.revokePlan, {
+			sessionToken: a.sessionToken,
+			containerId: a.containerId
+		});
 		const now = await ctx.runQuery(internal.deposits.clock, {});
 		const r = await chainRevokeKey(ctx, {
 			account: plan.account,
@@ -374,11 +382,23 @@ export const revoke = action({
 			at: now
 		});
 		if (!r.ok) throw appError('CHAIN_ERROR', r.error.message, { name: r.error.name });
+		const tx: TxResultJson | null =
+			r.tx ??
+			(a.txHash
+				? {
+						mode: 'live',
+						txHash: a.txHash as `0x${string}`,
+						blockNumber: '0',
+						timestamp: Date.now(),
+						explorerUrl: null,
+						finalityMs: 0
+					}
+				: null);
 		await ctx.runMutation(internal.accessKeys.recordRevoked, {
 			keyId: plan.keyId,
-			tx: r.tx,
+			tx,
 			actor: plan.actor
 		});
-		return { revoked: true, txHash: r.tx?.txHash ?? null, midFlight: plan.midFlight };
+		return { revoked: true, txHash: tx?.txHash ?? null, midFlight: plan.midFlight };
 	}
 });

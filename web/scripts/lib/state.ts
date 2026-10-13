@@ -80,7 +80,6 @@ export function addresses(s: TempoState) {
 /** The `npx convex env set ...` lines, one per variable. Values are quoted for the shell. */
 export function convexEnvLines(s: TempoState, opts: { rpcUrl?: string } = {}): string[] {
 	const rows: [string, string | number | undefined][] = [
-		['TEMPO_MODE', 'live'],
 		['TEMPO_RPC_URL', opts.rpcUrl ?? DEFAULT_RPC_URL],
 		['TEMPO_SPONSOR_KEY', s.sponsorKey],
 		['TEMPO_OPERATOR_KEY', s.operatorKey],
@@ -90,7 +89,12 @@ export function convexEnvLines(s: TempoState, opts: { rpcUrl?: string } = {}): s
 		['PORTUNUS_MASTER_ID', s.masterId],
 		['PORTUNUS_SETTLEMENT', s.settlement],
 		['PORTUNUS_CHARGES', addresses(s).charges],
-		['VA_ENV_PREFIX', s.vaEnvPrefix]
+		['PORTUNUS_DEPOSITS_ACCOUNT', addresses(s).deposits],
+		['VA_ENV_PREFIX', s.vaEnvPrefix],
+		// The indexer scans from here instead of genesis.
+		['INDEXER_START_BLOCK', s.settlementBlock],
+		// Last, so the app only flips to live once everything else is in place.
+		['TEMPO_MODE', 'live']
 	];
 	return rows
 		.filter(([, val]) => val !== undefined)

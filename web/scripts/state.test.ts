@@ -38,6 +38,7 @@ describe('setup state helpers', () => {
 			'PORTUNUS_MASTER_ID',
 			'PORTUNUS_SETTLEMENT',
 			'PORTUNUS_CHARGES',
+			'PORTUNUS_DEPOSITS_ACCOUNT',
 			'VA_ENV_PREFIX'
 		]) {
 			expect(lines, name).toContain(`npx convex env set ${name} `);

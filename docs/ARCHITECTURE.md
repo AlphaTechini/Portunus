@@ -205,5 +205,5 @@ tempoNode.listHeldReceipts({ depositsAccount, fromBlock }) -> { receipts: HeldRe
 
 - Vitest + `convex-test` for backend logic (runs in Node; add as devDeps). Cover: state machine, accrual math, settlement caps, the 1-day limit refusal, dispute split, silent-line rule, idempotent settlement, sweep.
 - `npx convex codegen --system-udfs --typecheck enable` must pass (brief §10).
-- `npm run check` and `npm run build` in `web/` must pass with zero errors.
+- `pnpm check` and `pnpm build` in `web/` must pass with zero errors.
 - Playwright E2E against the local runtime (FRONTEND phase).

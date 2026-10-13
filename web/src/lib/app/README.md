@@ -62,6 +62,29 @@ async function payAll() {
 A person with a passkey gets the real WebAuthn prompt (`approveWithPasskey(payloadHash)`); a demo persona gets the
 passkey-styled sheet with a simulated Face ID animation and the note "Simulated approval (demo persona)".
 
+### Live chain (`TEMPO_MODE=live`)
+
+On the live chain the passkey has to sign the real Tempo transaction, so a request can pass `live`: a function that
+signs and submits it. The sheet then runs `live()` instead of the separate approval assertion, so the person sees one
+prompt per transaction and the on-chain transaction is the proof. The result comes back as `live`:
+
+```ts
+const { approval, live } = await app.approve({
+	...request,
+	live: app.chainMode === 'live' ? () => livePayDeposits(app.passkeySigner, plan.items) : undefined
+});
+const res = live
+	? await recordLive({ requestId, txHash: live.txHash })
+	: await pay({ requestId, approval });
+```
+
+Tradeoff: the backend no longer gets a WebAuthn assertion over `payloadHash` for live payments; it re-reads the
+transaction from the chain instead, which is stronger proof of what actually moved.
+
+- To find the passkey-signed live transactions (pay deposits, authorize keys, revoke, faucet) visit [liveTx.ts](file:///C:/Hackathons/Portunus/web/src/lib/app/liveTx.ts).
+- To find the on-chain balance read visit [useLiveBalance.svelte.ts](file:///C:/Hackathons/Portunus/web/src/lib/app/useLiveBalance.svelte.ts).
+- To find the importer's live account card (balance and testnet faucet button) visit [LiveWallet.svelte](file:///C:/Hackathons/Portunus/web/src/lib/app/LiveWallet.svelte).
+
 ## Chain results and time
 
 - `<ChainResult txHash finalityMs toastTitle="Deposit held by protocol" />`: finality, hash (`sim:` prefix, no explorer
@@ -70,7 +93,10 @@ passkey-styled sheet with a simulated Face ID animation and the note "Simulated 
 - `units(string)` turns backend money strings into the bigint `<Money>` takes. `relativeToProduct(ts, app.now())`.
 - Never use `Date.now()` for product logic, use `app.now()`.
 
-## Demo hooks (sim only)
+## Demo hooks
+
+On the simulated chain every hook works. On the live chain only `trySecondPull` and `sendStranger` run (both are real
+transactions); the clock controls and reset are hidden.
 
 ```ts
 const demo = useDemoActions(); // demo.advanceClock(ms), jumpToFreeTimeEnd(id), trySecondPull(id), sendStranger(token), reset()
@@ -90,7 +116,11 @@ useDemoPageActions(() => [
 - `useContainerRef(() => page.params.number)`: resolves `/containers/[number]` to the container id for `containers.get`.
 - `safeNext`, `homeFor`, `canOpen`, `containerHref`, `importerRequestHref`, `lineRequestHref` in `routes.ts`.
 - `PlaceholderPage`: used by unbuilt routes; replace the route file when you build the page.
+- Role switch: `app.switchRole(role)` parks a passkey session instead of signing it out, so a presenter can show the
+  demo shipping line and come back to their passkey importer without a new prompt. To find the parked-session logic
+  visit [persona.ts](file:///C:/Hackathons/Portunus/web/src/lib/app/persona.ts) and
+  [ctx.svelte.ts](file:///C:/Hackathons/Portunus/web/src/lib/app/ctx.svelte.ts).
 
 ## Tests
 
-`npm run test:e2e` runs Playwright against the dev server in the in-browser backend (see `web/e2e/`).
+`pnpm test:e2e` runs Playwright against the dev server in the in-browser backend (see `web/e2e/`).

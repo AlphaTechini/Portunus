@@ -7,8 +7,10 @@
 	import { Button, Modal, formatContainerNumber, formatMoney, toast } from '#lib/ui';
 	import { useAuthedAction } from '#lib/backend';
 	import { api } from './api';
+	import { useApp } from './ctx.svelte';
 	import { errorMessage } from './errors';
 	import { units } from './format';
+	import { liveRevokeKey } from './liveTx';
 
 	interface Props {
 		containerId: string;
@@ -16,11 +18,22 @@
 		lineName: string;
 		/** Daily cap in base units, for the explanation. */
 		dailyLimitUnits?: string;
+		/** The key's on-chain address. Required on the live chain, where the passkey signs the revoke. */
+		keyAddress?: string;
 		size?: 'sm' | 'md';
 		onrevoked?: () => void;
 	}
-	let { containerId, number, lineName, dailyLimitUnits, size = 'sm', onrevoked }: Props = $props();
+	let {
+		containerId,
+		number,
+		lineName,
+		dailyLimitUnits,
+		keyAddress,
+		size = 'sm',
+		onrevoked
+	}: Props = $props();
 
+	const app = useApp();
 	const revoke = useAuthedAction(api.accessKeys.revoke);
 	let open = $state(false);
 	let busy = $state(false);
@@ -30,7 +43,12 @@
 		busy = true;
 		error = '';
 		try {
-			const r = await revoke({ containerId: containerId as never });
+			let txHash: string | undefined;
+			if (app.chainMode === 'live') {
+				if (!keyAddress) throw new Error('This key has no on-chain address to revoke.');
+				txHash = (await liveRevokeKey(app.passkeySigner, keyAddress)).txHash;
+			}
+			const r = await revoke({ containerId: containerId as never, ...(txHash ? { txHash } : {}) });
 			open = false;
 			toast.success('Access key revoked', {
 				description: r.midFlight

@@ -7,7 +7,7 @@ Code involved:
 | File | Role |
 |---|---|
 | `contracts/PortunusSettlement.sol` | Recovery authority for the line's deposits account. Pays only the line's charges address or the original payer. |
-| `web/src/lib/shared/tempo/settlementAbi.ts` | Generated ABI and bytecode (`npm run compile:contract`). Committed. |
+| `web/src/lib/shared/tempo/settlementAbi.ts` | Generated ABI and bytecode (`pnpm compile:contract`). Committed. |
 | `web/scripts/setup-tempo.ts` | One-time setup: keys, faucet, virtual-address master, contract deploy, receive policy. |
 | `web/src/convex/tempoNode.ts` | `"use node"` Convex internal actions that talk to the chain with server keys. |
 | `web/src/lib/tempo/passkey.ts`, `live.browser.ts` | Browser only: passkeys and the transactions the user signs. |
@@ -15,7 +15,7 @@ Code involved:
 
 ## 0. Prerequisites
 
-- Node 22, npm, a browser with passkey support (current Chrome, Safari or Edge) and a platform authenticator (Touch ID, Windows Hello, a phone, or a hardware key).
+- Node 22+, pnpm, a browser with passkey support (current Chrome, Safari or Edge) and a platform authenticator (Touch ID, Windows Hello, a phone, or a hardware key).
 - Open the app at **`http://localhost:5173`**, never `http://127.0.0.1:5173`. WebAuthn rejects IP-address relying-party ids. `localhost` counts as a secure context, so HTTPS is not needed there.
 - A passkey is bound to the page hostname. One created on `localhost` does not work on a deployed domain (and vice versa). Create separate test accounts per domain.
 - Network access to `https://rpc.moderato.tempo.xyz` and (for the browser) `https://sponsor.moderato.tempo.xyz`.
@@ -24,9 +24,9 @@ Code involved:
 
 ```bash
 cd web
-npm install
-npm run compile:contract      # optional: settlementAbi.ts is committed; rerun only if the .sol changes
-npm run test:tempo            # offline tests (contract in a JS EVM, memos, AES-GCM, receipts, passkey checks)
+pnpm install
+pnpm compile:contract      # optional: settlementAbi.ts is committed; rerun only if the .sol changes
+pnpm test:tempo            # offline tests (contract in a JS EVM, memos, AES-GCM, receipts, passkey checks)
 ```
 
 `compile:contract` uses `solc@0.8.28` with `evmVersion: cancun` and the optimizer at 200 runs, the same settings the "held" project used successfully on Moderato. No Foundry needed.
@@ -42,14 +42,14 @@ This creates the deployment and writes `web/.env.local` with `PUBLIC_CONVEX_URL`
 ## 3. One-time chain setup
 
 ```bash
-npm run setup:tempo           # idempotent; about 15 minutes the first time
+pnpm setup:tempo           # idempotent; about 15 minutes the first time
 ```
 
 What it does, in order (each step is skipped if already done; state is saved after every step in the gitignored `web/.state/tempo.json`):
 
 1. Generates testnet keys: sponsor (pays fees), operator (platform key that settles), line deposits account, line charges address, dispute resolver, plus the AES-GCM key for stored access keys and a random 16-bit virtual-address prefix.
 2. Funds the sponsor and operator from the faucet (`tempo_fundAddress`).
-3. Mines the deposits-account salt for the virtual-address master. This is a 32-bit proof of work: about 15 minutes on 4 cores on average, longer on bad luck. Run `npm run setup:tempo -- --mine-only` first if you want to mine offline (for example on the plane).
+3. Mines the deposits-account salt for the virtual-address master. This is a 32-bit proof of work: about 15 minutes on 4 cores on average, longer on bad luck. Run `pnpm setup:tempo --mine-only` first if you want to mine offline (for example on the plane).
 4. Registers the deposits account as a virtual-address master (sponsored).
 5. Deploys `PortunusSettlement(depositsAccount, charges, operator, resolver, AlphaUSD, maxHold)` from the operator. `maxHold` defaults to 30 days (`MAX_HOLD_SECONDS` to change). The operator pays this one fee itself.
 6. Sets the receive policy on the deposits account: senders `reject-all`, tokens `allow-all`, recovery authority = the contract (sponsored). From now on every payment to the account or to any container address under it lands in the protocol guard and only the contract can move it.
@@ -75,11 +75,19 @@ Run the `npx convex env set ...` lines the script printed (from `web/`, against 
 | `PORTUNUS_MASTER_ID` | The registered virtual-address master id (4 bytes). |
 | `PORTUNUS_SETTLEMENT` | The deployed contract address. |
 | `PORTUNUS_CHARGES` | The line's charges address. Must have no receive policy. |
+| `PORTUNUS_DEPOSITS_ACCOUNT` | The line's deposits account (the virtual-address master). Copied onto the live line when it is provisioned; the indexer skips lines without it. |
 | `VA_ENV_PREFIX` | 16-bit prefix mixed into every container's virtual address so databases sharing the master never collide. |
+| `INDEXER_START_BLOCK` | Block the held-receipt indexer starts from (the contract deploy block). Without it the indexer scans from genesis. |
 
 These are **testnet** keys. Never reuse them elsewhere and never put them in `.env.local`, the repo or the browser.
 
 Then record the line's addresses in the live line's organization (`depositsAccount`, `chargesAddress`, `settlementContract`, `masterId`, `receivePolicy`) using the public config the script printed. How the live line's organization row is created is owned by the backend seed; if there is no live-line helper yet, edit that row in the Convex dashboard.
+
+For a demo, add the one-click shipping line on the live chain (no passkey; line transactions are signed by the server keys anyway):
+
+```bash
+npx convex run seed:ensureLiveDemoLine   # creates Meridian Ocean Lines, provisioned on PORTUNUS_MASTER_ID and the contract
+```
 
 Check the wiring from the Convex dashboard by running the internal action `tempoNode:health` (expects `chainId: 42431`) and `tempoNode:publicConfig` (its `missing` list must be empty).
 
@@ -94,10 +102,12 @@ To override, call `configureLive({ rpcUrl, sponsorUrl })` from `src/lib/tempo/li
 
 To make the platform pay fees through your own relay instead of the public sponsor, serve the viem `Relay.feePayer` handler from a Convex `httpAction` (sketch in `docs/research/tempo-integration.md` section 4) and set the sponsor URL to `https://<deployment>.convex.site/tempo/relay`. That path is unverified in Convex's default runtime; the public sponsor is the safe default.
 
+The pages call the browser signing code only when `TEMPO_MODE=live`: paying deposits (`payDepositsBatch`, then `deposits.recordLiveBatch`), authorizing access keys (`authorizeAccessKey`, then `accessKeys.authorize` with `liveTxHashes`), revoking (`revokeKey`, then `accessKeys.revoke` with `txHash`), and the faucet (automatic at importer sign-up, plus a button on the importer dashboard). The passkey signature on the transaction replaces the separate approval prompt. See `web/src/lib/app/README.md`.
+
 ## 6. Run it and smoke test
 
 ```bash
-npm run dev                   # http://localhost:5173
+pnpm dev                   # http://localhost:5173
 ```
 
 In order, on a networked machine (this is the smoke test nobody has been able to run yet):
@@ -115,12 +125,12 @@ Switch back to simulation at any time with `npx convex env set TEMPO_MODE sim`. 
 
 ## 7. What is verified and what is not
 
-**Verified offline in this repository** (`npm run test:tempo`, `npx convex codegen --system-udfs --typecheck enable`, `npm run check`):
+**Verified offline in this repository** (`pnpm test:tempo`, `npx convex codegen --system-udfs --typecheck enable`, `pnpm check`):
 
 - Every viem and `viem/tempo` symbol used by the live code typechecks against viem 2.57.4 (the installed sources).
 - `PortunusSettlement.sol` compiles with solc 0.8.28 (cancun) and its behaviour is covered by tests executed in a JavaScript EVM against Solidity stand-ins for the guard, the address registry and a TIP-20 token: settle, settleMany (atomic), disputes and escrow, one-time settlement, access control, receipt length / authority / recipient / token checks, zero-amount legs skipped, `returnToSender`, `refundAfterDeadline`, constructor checks.
 - Memo encoding, AES-GCM round trip, guard receipt decoding (from synthetic `TransferBlocked` logs built with viem's own encoders), virtual address derivation, passkey assertion verification (against a software authenticator), key authorization signing with a daily limit and recipient scope, SpendingLimitExceeded detection on error text and selector, the setup script's state and env output.
-- `npm run setup:tempo` loads, typechecks, and fails at the first network call with a clear message.
+- `pnpm setup:tempo` loads, typechecks, and fails at the first network call with a clear message.
 
 **Not verified (nothing was executed against Moderato).** These carry over from the research brief (section 12) and are joined by gaps specific to the contract and browser code:
 

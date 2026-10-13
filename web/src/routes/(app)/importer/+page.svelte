@@ -39,6 +39,7 @@
 		type TableColumn
 	} from '#lib/ui';
 	import {
+		LiveWallet,
 		ModeBadge,
 		ProductCountdown,
 		SeriesChart,
@@ -152,6 +153,10 @@
 <svelte:head><title>Dashboard · Portunus</title></svelte:head>
 
 <PageHeader title="Dashboard" subtitle="Your deposits, refunds and containers." />
+
+{#if app.chainMode === 'live'}
+	<div class="live-wallet"><LiveWallet /></div>
+{/if}
 
 {#if dash.error}
 	<Card padding="lg">
@@ -504,6 +509,9 @@
 		gap: var(--space-4);
 	}
 
+	.live-wallet {
+		margin-bottom: var(--space-5);
+	}
 	.actions {
 		list-style: none;
 		margin: 0;

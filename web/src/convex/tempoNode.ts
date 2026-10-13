@@ -137,6 +137,7 @@ export const publicConfig = internalAction({
 			'ACCESS_KEY_ENC_KEY',
 			'PORTUNUS_SETTLEMENT',
 			'PORTUNUS_CHARGES',
+			'PORTUNUS_DEPOSITS_ACCOUNT',
 			'PORTUNUS_MASTER_ID',
 			'VA_ENV_PREFIX'
 		];
@@ -481,6 +482,41 @@ export const resolveDispute = internalAction({
 			return await txResultFromReceipt(client, receipt, started);
 		} catch (e) {
 			throw new Error(`resolveDispute failed: ${describeChainError(e)}`, { cause: e });
+		}
+	}
+});
+
+/**
+ * Demo: a real stranger. A fresh throwaway account is funded from the faucet and pays `to`; the
+ * receive policy holds it in the guard. The key is never stored, so the account is single-use.
+ */
+export const strangerTransfer = internalAction({
+	args: { to: v.string(), token: v.string(), amountUnits: v.string(), memo: v.string() },
+	handler: async (
+		_ctx,
+		a
+	): Promise<TxResultJson & { held: HeldReceiptJson[]; stranger: string }> => {
+		const stranger = Account.fromSecp256k1(generatePrivateKey());
+		const pub = publicClient();
+		try {
+			await Actions.faucet.fundSync(pub, { account: stranger.address });
+		} catch (e) {
+			throw new Error(`faucet for the stranger failed: ${describeChainError(e)}`, { cause: e });
+		}
+		const client = createAccountClient({ rpcUrl: rpcUrl(), account: stranger });
+		const started = Date.now();
+		try {
+			const { receipt } = await client.token.transferSync({
+				token: a.token as Address,
+				to: a.to as Address,
+				amount: BigInt(a.amountUnits),
+				memo: normalizeMemo(a.memo),
+				feePayer: sponsorAccount()
+			});
+			const tx = await txResultFromReceipt(client, receipt, started);
+			return { ...tx, held: heldReceiptsFromTxReceipt(receipt), stranger: stranger.address };
+		} catch (e) {
+			throw new Error(`stranger transfer failed: ${describeChainError(e)}`, { cause: e });
 		}
 	}
 });

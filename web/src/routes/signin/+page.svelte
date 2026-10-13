@@ -33,6 +33,7 @@
 	import {
 		api,
 		errorMessage,
+		liveFaucet,
 		rememberPersona,
 		safeNext,
 		type AppRole,
@@ -94,6 +95,7 @@
 
 	// ---- demo personas -----------------------------------------------------------------------
 	const personasQ = useQuery(api.auth.listDemoPersonas, {});
+	const statusQ = useQuery(api.system.status, {});
 	const groups = $derived.by(() => {
 		const all = personasQ.data ?? [];
 		return [
@@ -199,6 +201,16 @@
 				publicKey: cred.publicKey,
 				address: cred.address
 			});
+			// Live: a new importer gets testnet funds straight from the Tempo faucet, so it can pay at once.
+			if (orgKind === 'importer' && statusQ.data?.chainMode === 'live') {
+				try {
+					await liveFaucet(cred.address);
+				} catch (e) {
+					toast.error('Your account was created, but the faucet did not respond', {
+						description: `${errorMessage(e)} Use "Get testnet funds" on your dashboard.`
+					});
+				}
+			}
 			createPhase = 'success';
 			toast.success('Account created', {
 				description: 'Your passkey is your sign-in on this device.'

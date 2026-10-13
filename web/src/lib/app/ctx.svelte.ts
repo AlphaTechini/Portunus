@@ -24,9 +24,17 @@ import {
 } from '#lib/backend';
 import { api } from './api';
 import { ApprovalCancelledError } from './errors';
-import { recallPersona, rememberPersona } from './persona';
+import {
+	parkSession,
+	parkedSession,
+	recallPersona,
+	rememberPersona,
+	takeParkedSessions,
+	unparkSession
+} from './persona';
 import { homeFor, type AppRole } from './routes';
 import type { RequestApproval } from './approval';
+import type { Hex } from '../shared/tempo/live/constants';
 
 export type Me = NonNullable<FunctionReturnType<typeof api.auth.me>>;
 export type AppUser = Me['user'];
@@ -92,6 +100,16 @@ export class AppState {
 	}
 	get hasPasskey(): boolean {
 		return !!this.#me()?.user.hasPasskey;
+	}
+	/** The person's passkey as a Tempo signer for live transactions; null without a passkey. */
+	get passkeySigner(): { credentialId: string; publicKey: Hex; address: Hex } | null {
+		const u = this.#me()?.user;
+		if (!u?.credentialId || !u.passkeyPublicKey || !u.passkeyAddress) return null;
+		return {
+			credentialId: u.credentialId,
+			publicKey: u.passkeyPublicKey as Hex,
+			address: u.passkeyAddress as Hex
+		};
 	}
 	get sessionToken(): string {
 		return session.token ?? '';
@@ -160,31 +178,58 @@ export class AppState {
 		} catch {
 			/* the token may already be gone */
 		}
+		for (const t of takeParkedSessions()) void signOutToken(t);
 		clearSession();
 		// `signingOut` stays true on purpose: the layout that watches it is torn down by this
 		// navigation, and resetting it earlier makes the guard add a `next` parameter.
 		await goto('/signin');
 	}
 
-	/** Demo only: become another persona (new session) and land on `to` (default: their home). */
-	async switchPersona(userId: string, to?: string): Promise<void> {
+	/**
+	 * Demo only: become another persona (new session) and land on `to` (default: their home).
+	 * `keepOld` leaves the previous session signed in (it was parked by `switchRole`).
+	 */
+	async switchPersona(userId: string, to?: string, keepOld = false): Promise<void> {
 		const target = this.personas.find((p) => p.userId === userId);
 		if (!target) return;
 		const { sessionToken } = await signInDemo(userId);
 		const old = session.token;
 		setSession(sessionToken);
 		rememberPersona(target.orgKind, userId);
-		if (old) void signOutToken(old);
+		if (old && !keepOld) void signOutToken(old);
 		await goto(to ?? homeFor(target.orgKind));
 	}
 
-	/** Demo only: switch to the last persona used for `role`, else the first one that has it. */
+	/** True when the role switch can reach `role`: a demo persona has it, or a session is parked. */
+	canReach(role: AppRole): boolean {
+		return this.personas.some((p) => p.orgKind === role) || parkedSession(role) !== null;
+	}
+
+	/**
+	 * Switch sides. A passkey session is parked rather than signed out, so coming back to it needs
+	 * no new passkey prompt. Goes to a parked session for `role` if there is one, else to the last
+	 * demo persona used for `role`, else the first one that has it.
+	 */
 	async switchRole(role: 'line' | 'importer'): Promise<void> {
+		const current = session.token;
+		const keep = !this.isDemo && !!current;
+		const parked = parkedSession(role);
+		if (parked) {
+			unparkSession(role);
+			if (current) {
+				if (keep) parkSession(this.role, current);
+				else void signOutToken(current);
+			}
+			setSession(parked);
+			await goto(homeFor(role));
+			return;
+		}
 		const options = this.personas.filter((p) => p.orgKind === role);
 		if (!options.length) return;
+		if (keep && current) parkSession(this.role, current);
 		const remembered = recallPersona(role);
 		const pick = options.find((p) => p.userId === remembered) ?? options[0];
-		await this.switchPersona(pick.userId);
+		await this.switchPersona(pick.userId, undefined, keep);
 	}
 }
 
