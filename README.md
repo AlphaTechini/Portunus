@@ -8,8 +8,8 @@ Product spec: [`details.md`](details.md). Demo script: [`demo-video.md`](demo-vi
 
 ```bash
 cd web
-npm install
-npm run dev -- --host localhost
+pnpm install
+pnpm dev --host localhost
 ```
 
 Open **http://localhost:5173** (use `localhost`, not `127.0.0.1`, so passkeys work).
@@ -53,7 +53,7 @@ web/                        SvelteKit 3 + Svelte 5 app
 | | Default | Switch |
 |---|---|---|
 | Backend | In-browser runtime (local) | Set `PUBLIC_CONVEX_URL` and run `npx convex dev` |
-| Chain | Simulated (`sim`), clearly labelled in the UI | `TEMPO_MODE=live` in Convex env, after `npm run setup:tempo` (see [`docs/LIVE-SETUP.md`](docs/LIVE-SETUP.md)) |
+| Chain | Simulated (`sim`), clearly labelled in the UI | `TEMPO_MODE=live` in Convex env, after `pnpm setup:tempo` (see [`docs/LIVE-SETUP.md`](docs/LIVE-SETUP.md)) |
 
 The simulated chain follows the same rules as the live one: deposits to a line's virtual addresses land in the guard instead of its balance, a second same-day pull over the access key's daily limit is refused, and each guard receipt can be settled only once, paying only the line's charges address or the original payer.
 
@@ -61,12 +61,12 @@ The simulated chain follows the same rules as the live one: deposits to a line's
 
 ```bash
 cd web
-npm run check            # svelte-check + TypeScript
-npm test                 # backend logic (vitest + convex-test)
-npm run test:runtime     # in-browser Convex runtime
-npm run test:tempo       # settlement contract in a JS EVM, memos, receipts, passkeys
-npm run test:e2e         # Playwright end to end, including the demo-video script
-npm run build
+pnpm check            # svelte-check + TypeScript
+pnpm test             # backend logic (vitest + convex-test)
+pnpm test:runtime     # in-browser Convex runtime
+pnpm test:tempo       # settlement contract in a JS EVM, memos, receipts, passkeys
+pnpm test:e2e         # Playwright end to end, including the demo-video script
+pnpm build
 ```
 
 ## Tempo features used

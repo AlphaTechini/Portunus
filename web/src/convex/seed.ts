@@ -780,6 +780,57 @@ async function seedLive(ctx: MutationCtx): Promise<void> {
 	});
 }
 
+/**
+ * Live: one shipping line with a one-click demo persona, provisioned on the deployed settlement
+ * contract and virtual-address master. Line actions are signed by server keys, so the line needs no
+ * passkey; only the importer signs with one. Idempotent.
+ */
+async function ensureLiveLine(ctx: MutationCtx): Promise<Id<'organizations'>> {
+	const name = 'Meridian Ocean Lines';
+	const existing = (
+		await ctx.db
+			.query('organizations')
+			.withIndex('by_kind', (q) => q.eq('kind', 'line'))
+			.collect()
+	).find((o) => o.name === name);
+	if (existing) return existing._id;
+	const now = Date.now();
+	const id = await ctx.db.insert('organizations', {
+		kind: 'line',
+		name,
+		shortCode: 'MRDN',
+		country: 'Nigeria',
+		containerPrefix: 'MRDU',
+		blurb: 'Carrier with a Lagos (Apapa) import desk.',
+		settlementWindowDays: 3,
+		cleanReturnsForDepositFree: 3,
+		maxDetentionDays: 30,
+		createdAt: now
+	});
+	await provisionLine(ctx, id, now);
+	await insertDefaultRateCards(ctx, id);
+	await ctx.db.insert('users', {
+		orgId: id,
+		name: 'Adaeze Okafor',
+		role: 'line',
+		title: 'Import Desk Lead, Lagos (Apapa)',
+		blurb: 'Creates release requests, records returns and posts charges for Meridian Ocean Lines.',
+		email: 'adaeze@meridian.example',
+		demo: true,
+		createdAt: now
+	});
+	return id;
+}
+
+/** Live only, run once by hand (`convex run seed:ensureLiveDemoLine`): adds the demo shipping line. */
+export const ensureLiveDemoLine = internalMutation({
+	args: {},
+	handler: async (ctx): Promise<{ lineOrgId: Id<'organizations'> }> => {
+		if (chainMode() !== 'live') throw new Error('ensureLiveDemoLine is for the live chain only.');
+		return { lineOrgId: await ensureLiveLine(ctx) };
+	}
+});
+
 /** Public, idempotent: seeds the demo world if the database has no organizations. */
 export const ensure = mutation({
 	args: {},

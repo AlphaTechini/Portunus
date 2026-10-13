@@ -28,6 +28,7 @@
 		containerHref,
 		errorMessage,
 		isApprovalCancelled,
+		liveAuthorizeKeys,
 		units,
 		useApp
 	} from '#lib/app';
@@ -89,14 +90,15 @@
 	async function authorizeAll() {
 		if (!prepared || authorizing) return;
 		error = '';
+		const plan = prepared;
 		try {
-			const count = prepared.keys.length;
-			const { approval } = await app.approve({
-				payloadHash: prepared.payloadHash,
+			const count = plan.keys.length;
+			const { approval, live: signed } = await app.approve({
+				payloadHash: plan.payloadHash,
 				title: count === 1 ? 'Authorize access key' : `Authorize ${count} access keys`,
 				description: `No money moves. ${lineName} gets a capped daily right, payable only to its own charges address.`,
 				details: [
-					...prepared.keys.map((k) => ({
+					...plan.keys.map((k) => ({
 						label: k.number,
 						value: `Up to ${formatMoney(units(k.dailyLimitUnits))} per day`
 					})),
@@ -104,10 +106,28 @@
 					{ label: 'Expires', value: formatDate(latestExpiry) }
 				],
 				confirmLabel: 'Authorize',
-				confirmSublabel: 'No money moves. Fees sponsored.'
+				confirmSublabel:
+					app.chainMode === 'live'
+						? `No money moves. Two passkey prompts per key. Fees sponsored.`
+						: 'No money moves. Fees sponsored.',
+				live:
+					app.chainMode === 'live'
+						? () => liveAuthorizeKeys(app.passkeySigner, plan.keys)
+						: undefined
 			});
 			authorizing = true;
-			result = await authorize({ requestId, approval });
+			result = await authorize({
+				requestId,
+				approval,
+				...(signed
+					? {
+							liveTxHashes: signed.map((h) => ({
+								containerId: h.containerId as never,
+								txHash: h.txHash
+							}))
+						}
+					: {})
+			});
 		} catch (e) {
 			if (!isApprovalCancelled(e)) error = errorMessage(e);
 		} finally {
@@ -306,6 +326,7 @@
 							containerId={c._id}
 							number={c.number}
 							{lineName}
+							keyAddress={k.keyAddress}
 							dailyLimitUnits={k.dailyLimitUnits}
 						/>
 					</li>

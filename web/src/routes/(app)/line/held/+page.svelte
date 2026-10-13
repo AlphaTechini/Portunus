@@ -82,18 +82,16 @@
 	useDemoPageActions(() => [
 		{
 			id: 'stranger-beta',
-			label: 'Simulate a stranger transfer (BetaUSD)',
+			label: `${app.isSim ? 'Simulate' : 'Send'} a stranger transfer (BetaUSD)`,
 			hint: 'Wrong token to a deposit address',
 			busy: demo.busy === 'stranger',
-			disabled: !app.isSim,
 			onclick: () => demo.sendStranger('BetaUSD')
 		},
 		{
 			id: 'stranger-unknown',
-			label: 'Simulate a stranger transfer (unknown sender)',
+			label: `${app.isSim ? 'Simulate' : 'Send'} a stranger transfer (unknown sender)`,
 			hint: 'Right token from an unknown payer',
 			busy: demo.busy === 'stranger',
-			disabled: !app.isSim,
 			onclick: () => demo.sendStranger('AlphaUSD')
 		}
 	]);

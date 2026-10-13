@@ -29,8 +29,10 @@
 		errorCode,
 		errorMessage,
 		isApprovalCancelled,
+		livePayDeposits,
 		units,
-		useApp
+		useApp,
+		useLiveBalance
 	} from '#lib/app';
 	import { useAuthedAction, useAuthedQuery } from '#lib/backend';
 
@@ -40,6 +42,11 @@
 	const app = useApp();
 	const requestId = $derived(data.request._id);
 	const pay = useAuthedAction(api.deposits.payBatch);
+	const recordLive = useAuthedAction(api.deposits.recordLiveBatch);
+	// Live: the backend has no balance for the importer, so read it from the chain.
+	const liveBalance = useLiveBalance(() =>
+		app.chainMode === 'live' ? (app.passkeySigner?.address ?? null) : null
+	);
 
 	const awaiting = $derived(data.containers.filter((c) => c.state === 'awaiting_deposit'));
 	let result = $state<FunctionReturnType<typeof api.deposits.payBatch> | null>(null);
@@ -53,8 +60,14 @@
 	const p = $derived(preview.data);
 	const n = $derived(p?.items.length ?? 0);
 	const total = $derived(p ? units(p.totalUnits) : 0n);
-	const balance = $derived(p?.balanceUnits != null ? units(p.balanceUnits) : null);
-	const short = $derived(p?.sufficientBalance === false && balance !== null ? total - balance : 0n);
+	const balance = $derived(
+		p?.balanceUnits != null
+			? units(p.balanceUnits)
+			: app.chainMode === 'live'
+				? liveBalance.units
+				: null
+	);
+	const short = $derived(balance !== null && balance < total ? total - balance : 0n);
 	const symbol = $derived(app.status?.settlementTokenSymbol ?? 'AlphaUSD');
 	const anyPartial = $derived(
 		data.containers.some((c) => units(c.receivedUnits) > 0n && !c.covered)
@@ -72,24 +85,33 @@
 	async function payAll() {
 		if (!p || paying) return;
 		error = null;
+		const plan = p;
 		try {
-			const count = p.items.length;
-			const { approval } = await app.approve({
-				payloadHash: p.payloadHash,
+			const count = plan.items.length;
+			const { approval, live } = await app.approve({
+				payloadHash: plan.payloadHash,
 				title: `Pay ${count} ${count === 1 ? 'deposit' : 'deposits'}`,
 				description: `One transaction. The deposits go to ${data.line.name}'s protocol guard, not to the line's balance.`,
-				amount: p.totalUnits,
+				amount: plan.totalUnits,
 				amountLabel: 'Total to pay',
 				details: [
 					{ label: 'Bill of lading', value: data.request.billOfLading },
-					{ label: 'Containers', value: p.items.map((i) => i.number).join(', ') },
+					{ label: 'Containers', value: plan.items.map((i) => i.number).join(', ') },
 					{ label: 'Paid from', value: `${app.org.name}` }
 				],
 				confirmLabel: `Pay ${count} ${count === 1 ? 'deposit' : 'deposits'}`,
-				confirmSublabel: 'One transaction. Fees sponsored.'
+				confirmSublabel: 'One transaction. Fees sponsored.',
+				live:
+					app.chainMode === 'live'
+						? () => livePayDeposits(app.passkeySigner, plan.items)
+						: undefined
 			});
 			paying = true;
-			result = await pay({ requestId, approval });
+			// Live: the passkey already submitted the batch; the backend re-reads it from the chain.
+			result = live
+				? await recordLive({ requestId, txHash: live.txHash })
+				: await pay({ requestId, approval });
+			if (live) void liveBalance.refresh();
 		} catch (e) {
 			if (!isApprovalCancelled(e)) error = { code: errorCode(e), message: errorMessage(e) };
 		} finally {

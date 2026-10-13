@@ -1,5 +1,4 @@
 # Package Managers
-package-lock.json
 pnpm-lock.yaml
 yarn.lock
 bun.lock
@@ -7,3 +6,6 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# Convex codegen output, rewritten on every `convex dev`
+src/convex/_generated/

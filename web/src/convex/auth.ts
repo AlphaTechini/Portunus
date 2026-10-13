@@ -30,6 +30,7 @@ export function publicUser(u: Doc<'users'>) {
 		demo: u.demo,
 		hasPasskey: u.passkey !== undefined,
 		passkeyAddress: u.passkey?.address ?? null,
+		passkeyPublicKey: u.passkey?.publicKey ?? null,
 		credentialId: u.passkey?.credentialId ?? null
 	};
 }

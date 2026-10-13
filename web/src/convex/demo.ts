@@ -1,8 +1,9 @@
 /**
- * Demo controls. Sim chain only (except trySecondPull, which also works live). They move the
+ * Demo controls. Sim chain only, except trySecondPull and sendStrangerTransfer, which also run live. They move the
  * product clock, inject strangers' transfers and show the chain refusing a second same-day pull.
  */
 import { v } from 'convex/values';
+import { makeFunctionReference } from 'convex/server';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { action, internalMutation, internalQuery } from './_generated/server';
@@ -24,7 +25,7 @@ import type { SweepSummary } from './sweep';
 import { DAY_MS, ALPHA_USD, BETA_USD } from '../lib/shared/domain/constants';
 import { encodeMemo, pullMemo, type Hex } from '../lib/shared/domain/memo';
 import { toUnits, u, formatUsd } from '../lib/shared/domain/money';
-import type { HeldReceiptJson } from '../lib/shared/tempo/adapter';
+import type { HeldReceiptJson, TxResultJson } from '../lib/shared/tempo/adapter';
 
 function requireDemoSim(): void {
 	if (!demoEnabled()) throw appError('DEMO_DISABLED', 'Demo controls are turned off.');
@@ -99,6 +100,12 @@ export const jumpToFreeTimeEnd = action({
 
 const STRANGER = simAddress('stranger:demo');
 
+const liveStrangerTransfer = makeFunctionReference<
+	'action',
+	{ to: string; token: string; amountUnits: string; memo: string },
+	TxResultJson & { held: HeldReceiptJson[]; stranger: string }
+>('tempoNode:strangerTransfer');
+
 export const strangerPlan = internalQuery({
 	args: { sessionToken: v.string(), lineOrgId: v.id('organizations') },
 	handler: async (
@@ -124,13 +131,19 @@ export const strangerPlan = internalQuery({
 });
 
 export const ingestStranger = internalMutation({
-	args: { receipts: v.any(), txHash: v.string(), finalityMs: v.number(), blockNumber: v.string() },
+	args: {
+		receipts: v.any(),
+		txHash: v.string(),
+		finalityMs: v.number(),
+		blockNumber: v.string(),
+		mode: v.optional(v.union(v.literal('sim'), v.literal('live')))
+	},
 	handler: async (
 		ctx,
 		a
 	): Promise<{ heldTransferIds: Id<'heldTransfers'>[]; reasons: string[] }> => {
 		const r = await ingestReceipts(ctx, a.receipts as HeldReceiptJson[], {
-			mode: 'sim',
+			mode: a.mode ?? 'sim',
 			finalityMs: a.finalityMs,
 			now: await productNow(ctx),
 			blockNumber: a.blockNumber
@@ -164,13 +177,43 @@ export const sendStrangerTransfer = action({
 		amountUnits: string;
 		token: string;
 	}> => {
-		requireDemoSim();
+		if (!demoEnabled()) throw appError('DEMO_DISABLED', 'Demo controls are turned off.');
 		const plan = await ctx.runQuery(internal.demo.strangerPlan, {
 			sessionToken: a.sessionToken,
 			lineOrgId: a.lineOrgId
 		});
 		const amount = a.token === 'BetaUSD' ? toUnits('250.00') : toUnits('175.00');
 		const token = a.token === 'BetaUSD' ? BETA_USD : ALPHA_USD;
+		const memo = encodeMemo(
+			plan.viaContainer ? `STRANGER ${plan.viaContainer}` : 'STRANGER TRANSFER'
+		);
+		if (chainMode() === 'live') {
+			let sent;
+			try {
+				sent = await ctx.runAction(liveStrangerTransfer, {
+					to: plan.target,
+					token,
+					amountUnits: amount.toString(),
+					memo
+				});
+			} catch (e) {
+				throw appError('CHAIN_ERROR', e instanceof Error ? e.message : String(e));
+			}
+			const rec = await ctx.runMutation(internal.demo.ingestStranger, {
+				receipts: sent.held,
+				txHash: sent.txHash,
+				finalityMs: sent.finalityMs,
+				blockNumber: sent.blockNumber,
+				mode: 'live'
+			});
+			return {
+				txHash: sent.txHash,
+				reason: rec.reasons[0] ?? null,
+				heldTransferId: rec.heldTransferIds[0] ?? null,
+				amountUnits: amount.toString(),
+				token: a.token
+			};
+		}
 		await ctx.runMutation(internal.sim.fund, { address: plan.stranger });
 		const res = await ctx.runMutation(internal.sim.transferBatch, {
 			from: plan.stranger,
@@ -179,9 +222,7 @@ export const sendStrangerTransfer = action({
 				{
 					to: plan.target,
 					amountUnits: amount.toString(),
-					memo: encodeMemo(
-						plan.viaContainer ? `STRANGER ${plan.viaContainer}` : 'STRANGER TRANSFER'
-					)
+					memo
 				}
 			]
 		});

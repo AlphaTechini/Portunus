@@ -1,4 +1,4 @@
-// One-time live setup for Tempo Moderato. Run on a networked machine:   npm run setup:tempo
+// One-time live setup for Tempo Moderato. Run on a networked machine:   pnpm setup:tempo
 // Idempotent: every step is skipped when already done. State (testnet keys, deployment) lives in the
 // gitignored web/.state/tempo.json. Flags:
 //   --print       print the Convex env lines and public config from saved state, no network

@@ -26,7 +26,9 @@
 	let root: HTMLElement | undefined = $state();
 	let toggle: HTMLButtonElement | undefined = $state();
 
-	const visible = $derived(app.isSim && app.status?.demoMode !== false);
+	// Live chain: only the actions that are real transactions (stranger transfer, second pull) show.
+	const visible = $derived(app.status?.demoMode !== false);
+	const live = $derived(!app.isSim);
 	const now = $derived(tick + app.clockOffsetMs);
 	const offset = $derived(app.clockOffsetMs);
 	const extra = $derived(getDemoPageActions());
@@ -90,7 +92,11 @@
 			<SlidersHorizontal size={14} strokeWidth={1.75} aria-hidden="true" />
 			<span class="word">Demo</span>
 			<span class="sep" aria-hidden="true"></span>
-			<span class="t tabular" title="Product clock">{formatDateTime(now).slice(-5)}</span>
+			{#if live}
+				<span class="t">Live</span>
+			{:else}
+				<span class="t tabular" title="Product clock">{formatDateTime(now).slice(-5)}</span>
+			{/if}
 			<span class="sr-only">{open ? 'Collapse' : 'Expand'} demo controls</span>
 		</button>
 		{#if open}
@@ -111,39 +117,41 @@
 					/>
 				</header>
 
-				<div class="clock" aria-live="polite">
-					<span class="k"
-						><Clock size={12} strokeWidth={1.75} aria-hidden="true" /> Product clock</span
-					>
-					<span class="now tabular" data-testid="demo-clock"
-						>{formatDateTime(now, { seconds: true })}</span
-					>
-					<span class="off tabular" data-testid="demo-offset">
-						{offset > 0
-							? `${formatDuration(offset, 'short')} ahead of real time`
-							: 'In step with real time'}
-					</span>
-				</div>
-
-				<div class="group">
-					<p class="label">Move time forward</p>
-					<div class="pair">
-						<Button
-							size="sm"
-							icon={FastForward}
-							loading={demo.busy === 'advance'}
-							disabled={demo.busy !== null}
-							onclick={() => demo.advanceClock(HOUR_MS)}>+1 hour</Button
+				{#if !live}
+					<div class="clock" aria-live="polite">
+						<span class="k"
+							><Clock size={12} strokeWidth={1.75} aria-hidden="true" /> Product clock</span
 						>
-						<Button
-							size="sm"
-							icon={FastForward}
-							loading={demo.busy === 'advance'}
-							disabled={demo.busy !== null}
-							onclick={() => demo.advanceClock(DAY_MS)}>+1 day</Button
+						<span class="now tabular" data-testid="demo-clock"
+							>{formatDateTime(now, { seconds: true })}</span
 						>
+						<span class="off tabular" data-testid="demo-offset">
+							{offset > 0
+								? `${formatDuration(offset, 'short')} ahead of real time`
+								: 'In step with real time'}
+						</span>
 					</div>
-				</div>
+
+					<div class="group">
+						<p class="label">Move time forward</p>
+						<div class="pair">
+							<Button
+								size="sm"
+								icon={FastForward}
+								loading={demo.busy === 'advance'}
+								disabled={demo.busy !== null}
+								onclick={() => demo.advanceClock(HOUR_MS)}>+1 hour</Button
+							>
+							<Button
+								size="sm"
+								icon={FastForward}
+								loading={demo.busy === 'advance'}
+								disabled={demo.busy !== null}
+								onclick={() => demo.advanceClock(DAY_MS)}>+1 day</Button
+							>
+						</div>
+					</div>
+				{/if}
 
 				{#if extra.length}
 					<div class="group">
@@ -185,21 +193,25 @@
 					</div>
 					<p class="hint">
 						{isLine
-							? 'Sent to this line. The guard holds it under Held transfers.'
+							? live
+								? 'A real transfer on Tempo from a fresh account. The guard holds it under Held transfers.'
+								: 'Sent to this line. The guard holds it under Held transfers.'
 							: 'Switch to a shipping line to send one.'}
 					</p>
 				</div>
 
-				<div class="group last">
-					<Button
-						size="sm"
-						variant="ghost"
-						fullWidth
-						icon={RotateCcw}
-						disabled={demo.busy !== null}
-						onclick={() => (confirmReset = true)}>Reset demo data</Button
-					>
-				</div>
+				{#if !live}
+					<div class="group last">
+						<Button
+							size="sm"
+							variant="ghost"
+							fullWidth
+							icon={RotateCcw}
+							disabled={demo.busy !== null}
+							onclick={() => (confirmReset = true)}>Reset demo data</Button
+						>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</aside>

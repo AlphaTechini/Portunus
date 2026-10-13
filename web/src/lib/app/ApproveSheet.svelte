@@ -4,6 +4,7 @@
 	 * `useApp().approve({...})` (see ctx.svelte.ts) and never mount it themselves.
 	 *
 	 *  - Person has a passkey: a real WebAuthn prompt over `payloadHash` (`approveWithPasskey`).
+	 *  - Live chain and the request has `live`: that prompt signs the real transaction instead.
 	 *  - Demo persona (no passkey): a passkey-styled confirm sheet with a short simulated biometric
 	 *    animation and an explicit "Simulated approval (demo persona)" note.
 	 *
@@ -43,10 +44,14 @@
 				: req.amount
 	);
 
-	function request(r: ApprovalRequest): Promise<ApprovalResult> {
+	function request<T = unknown>(r: ApprovalRequest<T>): Promise<ApprovalResult<T>> {
 		pending?.reject(new ApprovalCancelledError());
-		return new Promise<ApprovalResult>((resolve, reject) => {
-			pending = { req: r, resolve, reject };
+		return new Promise<ApprovalResult<T>>((resolve, reject) => {
+			pending = {
+				req: r as ApprovalRequest,
+				resolve: resolve as (x: ApprovalResult) => void,
+				reject
+			};
 			phase = 'idle';
 			failure = '';
 			open = true;
@@ -79,11 +84,24 @@
 
 	async function approve() {
 		if (!pending || phase === 'waiting' || phase === 'success') return;
-		const { payloadHash } = pending.req;
+		const { payloadHash, live } = pending.req;
 		phase = 'waiting';
 		failure = '';
 		try {
-			if (app.hasPasskey) {
+			if (app.hasPasskey && app.chainMode === 'live' && live) {
+				const out = await live();
+				phase = 'success';
+				await sleep(450);
+				finish({
+					approvedWith: 'passkey',
+					approval: {
+						method: 'passkey',
+						...(app.user.credentialId ? { credentialId: app.user.credentialId } : {}),
+						payloadHash
+					},
+					live: out
+				});
+			} else if (app.hasPasskey) {
 				const sig = await approveWithPasskey(
 					payloadHash,
 					app.user.credentialId ? { credentialId: app.user.credentialId } : undefined

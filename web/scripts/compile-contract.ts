@@ -1,6 +1,6 @@
 // Compiles contracts/PortunusSettlement.sol and writes ABI + bytecode into
 // src/lib/shared/tempo/settlementAbi.ts (generated; committed so the app never needs solc at runtime).
-//   npm run compile:contract
+//   pnpm compile:contract
 import { writeFileSync } from 'node:fs';
 import { compileSettlement } from './lib/solc';
 
